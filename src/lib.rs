@@ -1,7 +1,9 @@
-use chrono::{DateTime, FixedOffset, Local, TimeZone, Timelike, Utc};
+use chrono::{DateTime, FixedOffset, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 
 mod pages;
+
+const SHARKS_ID: usize = 28;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -45,6 +47,14 @@ impl Game {
             t.minute(),
             pm_str
         )
+    }
+
+    pub fn class(&self) -> String {
+        if self.teams.home.team.id == SHARKS_ID || self.teams.away.team.id == SHARKS_ID {
+            "sharks".to_string()
+        } else {
+            "".to_string()
+        }
     }
 }
 

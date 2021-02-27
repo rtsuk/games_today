@@ -85,7 +85,7 @@ impl Component for GamesToday {
             { format!("{} total games", self.schedule.total_games) }
             <ul>
             {
-                for games.iter().map(|game| html! { <li>{ game.describe(offset) }</li> })
+                for games.iter().map(|game| html! { <li><span class=classes!(game.class())>{ game.describe(offset) }</span></li> })
             }
             </ul>
             </div>
