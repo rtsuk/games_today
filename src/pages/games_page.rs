@@ -79,13 +79,25 @@ impl Component for GamesToday {
             .get(0)
             .and_then(|date| Some(&date.games))
             .unwrap_or(&no_games);
+        let (finished, unfinished): (Vec<_>, Vec<_>) =
+            games.iter().partition(|game| game.is_finished());
         html! {
             <div class="container mt-4">
-            <h1>{"Games Today"}</h1>
-            { format!("{} total games", self.schedule.total_games) }
+            <h1>{ format!("Games Today: {}",self.schedule.total_games) }</h1>
+            <h2>{"In Progress and Upcoming"}</h2>
             <ul>
             {
-                for games.iter().map(|game| html! { <li><span class=classes!(game.class())>{ game.describe(offset) }</span></li> })
+                for unfinished.iter().map(|game| html! {
+                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                })
+            }
+            </ul>
+            <h2>{"Finished"}</h2>
+            <ul>
+            {
+                for finished.iter().map(|game| html! {
+                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                })
             }
             </ul>
             </div>

@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Error, Result};
-use chrono::{Local, Timelike};
+use chrono::Local;
 use games_today::Schedule;
 
 #[async_std::main]
@@ -10,20 +10,11 @@ async fn main() -> Result<(), Error> {
         .await
         .map_err(|e| anyhow!("e: {}", e))?;
     let schedule: Schedule = serde_json::from_str(&string)?;
+    let tz = Local::now();
     for date in schedule.dates {
         println!("{}", date.date.format("%x"));
         for game in date.games {
-            let t = game.game_date.with_timezone(&Local).time();
-            let (pm, h) = t.hour12();
-            let pm_str = if pm { "PM" } else { "AM" };
-            println!(
-                "{} vs {} @ {}:{:02} {}",
-                game.teams.home.team.name,
-                game.teams.away.team.name,
-                h,
-                t.minute(),
-                pm_str
-            )
+            println!("{}", game.describe(tz.offset().utc_minus_local() as f64),)
         }
     }
     Ok(())

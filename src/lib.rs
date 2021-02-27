@@ -28,25 +28,39 @@ pub struct Teams {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct Status {
+    abstract_game_state: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct Game {
     pub game_date: DateTime<Utc>,
     pub teams: Teams,
+    pub status: Status,
 }
 
 impl Game {
     pub fn describe(&self, offset: f64) -> String {
-        let tz = FixedOffset::west(offset as i32);
-        let t = self.game_date.with_timezone(&tz).time();
-        let (pm, h) = t.hour12();
-        let pm_str = if pm { "PM" } else { "AM" };
-        format!(
-            "{} vs {} @ {}:{:02} {}",
-            self.teams.home.team.name,
-            self.teams.away.team.name,
-            h,
-            t.minute(),
-            pm_str
-        )
+        if self.is_finished() {
+            format!(
+                "{} vs {}",
+                self.teams.home.team.name, self.teams.away.team.name,
+            )
+        } else {
+            let tz = FixedOffset::west(offset as i32);
+            let t = self.game_date.with_timezone(&tz).time();
+            let (pm, h) = t.hour12();
+            let pm_str = if pm { "PM" } else { "AM" };
+            format!(
+                "{} vs {} @ {}:{:02} {}",
+                self.teams.home.team.name,
+                self.teams.away.team.name,
+                h,
+                t.minute(),
+                pm_str
+            )
+        }
     }
 
     pub fn class(&self) -> String {
@@ -55,6 +69,10 @@ impl Game {
         } else {
             "".to_string()
         }
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.status.abstract_game_state == "Final"
     }
 }
 
