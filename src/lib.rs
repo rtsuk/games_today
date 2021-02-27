@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Local, TimeZone, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 
 mod pages;
@@ -31,6 +31,23 @@ pub struct Game {
     pub teams: Teams,
 }
 
+impl Game {
+    pub fn describe(&self, offset: f64) -> String {
+        let tz = FixedOffset::west(offset as i32);
+        let t = self.game_date.with_timezone(&tz).time();
+        let (pm, h) = t.hour12();
+        let pm_str = if pm { "PM" } else { "AM" };
+        format!(
+            "{} vs {} @ {}:{:02} {}",
+            self.teams.home.team.name,
+            self.teams.away.team.name,
+            h,
+            t.minute(),
+            pm_str
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Date {
@@ -43,6 +60,15 @@ pub struct Date {
 pub struct Schedule {
     pub total_games: usize,
     pub dates: Vec<Date>,
+}
+
+impl Default for Schedule {
+    fn default() -> Self {
+        Self {
+            total_games: 0,
+            dates: vec![],
+        }
+    }
 }
 
 mod web {
