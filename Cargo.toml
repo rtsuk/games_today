@@ -17,7 +17,7 @@ surf = "2.1.0"
 
 [dependencies]
 anyhow = "1.0.38"
-chrono = { version = "0.4.19", features = ["serde"] }
+chrono = { version = "0.4.19", features = ["serde", "wasmbind"] }
 log = "0.4.6"
 js-sys = "0.3"
 serde = "1.0.123"

@@ -1,24 +1,34 @@
 use crate::Schedule;
 use anyhow::Error;
+use chrono::{DateTime, Local};
+use std::time::Duration;
 use yew::{
     format::{Json, Nothing},
     prelude::*,
     Component,
 };
-use yew_services::fetch::{FetchService, FetchTask, Request, Response};
+use yew_services::{
+    fetch::{FetchService, FetchTask, Request, Response},
+    interval::{IntervalService, IntervalTask},
+};
 
 pub enum Msg {
     FetchReady(Result<Schedule, Error>),
+    Update,
 }
 
 pub struct GamesToday {
     link: ComponentLink<Self>,
-    schedule: Schedule,
+    schedule: Option<Schedule>,
     schedule_fetch: Option<FetchTask>,
+    refresh: Option<IntervalTask>,
+    update_button_ref: NodeRef,
 }
 
 impl GamesToday {
-    fn fetch_json(&mut self) -> yew_services::fetch::FetchTask {
+    fn fetch_json(&mut self) {
+        let date_time_now: DateTime<Local> = Local::now();
+        let date = date_time_now.date();
         let callback =
             self.link
                 .batch_callback(move |response: Response<Json<Result<Schedule, Error>>>| {
@@ -29,10 +39,22 @@ impl GamesToday {
                         None // FIXME: Handle this error accordingly.
                     }
                 });
-        let request = Request::get("https://statsapi.web.nhl.com/api/v1/schedule")
-            .body(Nothing)
-            .unwrap();
-        FetchService::fetch(request, callback).unwrap()
+        let request = Request::get(format!(
+            "https://statsapi.web.nhl.com/api/v1/schedule?date={}",
+            date.format("%F")
+        ))
+        .body(Nothing)
+        .unwrap();
+        let task = FetchService::fetch(request, callback).unwrap();
+        self.schedule_fetch = Some(task);
+    }
+
+    fn start_refresh_timer(&mut self) {
+        let task = IntervalService::spawn(
+            Duration::from_secs(30 * 60),
+            self.link.callback(|_| Msg::Update),
+        );
+        self.refresh = Some(task);
     }
 }
 
@@ -43,11 +65,13 @@ impl Component for GamesToday {
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
         let mut gt = Self {
             link,
-            schedule: Schedule::default(),
+            schedule: None,
             schedule_fetch: None,
+            refresh: None,
+            update_button_ref: NodeRef::default(),
         };
-        let schedule_fetch = gt.fetch_json();
-        gt.schedule_fetch = Some(schedule_fetch);
+        gt.fetch_json();
+        gt.start_refresh_timer();
         gt
     }
 
@@ -57,12 +81,13 @@ impl Component for GamesToday {
         match msg {
             Msg::FetchReady(result) => {
                 if let Ok(schedule) = result {
-                    self.schedule = schedule;
+                    self.schedule = Some(schedule);
                     true
                 } else {
                     false
                 }
             }
+            Msg::Update => true,
         }
     }
 
@@ -71,36 +96,66 @@ impl Component for GamesToday {
     }
 
     fn view(&self) -> Html {
-        let offset = js_sys::Date::new_0().get_timezone_offset() * 60.0;
-        let no_games = vec![];
-        let games = self
-            .schedule
-            .dates
-            .get(0)
-            .and_then(|date| Some(&date.games))
-            .unwrap_or(&no_games);
-        let (finished, unfinished): (Vec<_>, Vec<_>) =
-            games.iter().partition(|game| game.is_finished());
-        html! {
-            <div class="container mt-4">
-            <h1>{ format!("Games Today: {}",self.schedule.total_games) }</h1>
-            <h2>{"In Progress and Upcoming"}</h2>
-            <ul>
-            {
-                for unfinished.iter().map(|game| html! {
-                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
-                })
+        if let Some(schedule) = self.schedule.as_ref() {
+            let date_time_now: DateTime<Local> = Local::now();
+            let offset = js_sys::Date::new_0().get_timezone_offset() * 60.0;
+            let no_games = vec![];
+            let games = schedule
+                .dates
+                .get(0)
+                .and_then(|date| Some(&date.games))
+                .unwrap_or(&no_games);
+            let (finished, unfinished): (Vec<_>, Vec<_>) =
+                games.iter().partition(|game| game.is_finished());
+            html! {
+                <div class="container mt-4">
+                <h1>
+                    { format!("Games Today: {}",schedule.total_games) }
+                    <a class="btn btn-primary ms-3" ref=self.update_button_ref.clone()
+                        onclick=self.link.callback(|_| Msg::Update)>{ "Update" }</a>
+                </h1>
+                <h2>
+                    {
+                        format!("In Progress and Upcoming at {}",
+                        date_time_now.time().format("%l:%M %P"))
+                    }
+                </h2>
+                <ul>
+                {
+                    for unfinished.iter().map(|game| html! {
+                        <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                    })
+                }
+                </ul>
+                {
+                    if finished.len() > 0 {
+                        html! {
+                            <div>
+                            <h2>{"Finished"}</h2>
+                            <ul>
+                            {
+                                for finished.iter().map(|game| html! {
+                                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                                })
+                            }
+                            </ul>
+                            </div>
+                        }
+                        } else {
+                            html! {
+                                <div></div>
+                            }
+                        }
+                }
+                </div>
             }
-            </ul>
-            <h2>{"Finished"}</h2>
-            <ul>
-            {
-                for finished.iter().map(|game| html! {
-                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
-                })
+        } else {
+            html! {
+                <div class="container mt-4">
+                <h1>{ "Games Today" }</h1>
+                <h2>{ "Loading" }</h2>
+                </div>
             }
-            </ul>
-            </div>
         }
     }
 }
