@@ -1,0 +1,3 @@
+[build]
+command = "cargo make netlify"
+publish = "static"
