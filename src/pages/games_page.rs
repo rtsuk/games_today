@@ -1,6 +1,6 @@
 use crate::Schedule;
 use anyhow::Error;
-use chrono::{DateTime, Local};
+use chrono::{Date, DateTime, FixedOffset, Local, NaiveDate};
 use std::time::Duration;
 use yew::{
     format::{Json, Nothing},
@@ -15,11 +15,14 @@ use yew_services::{
 pub enum Msg {
     FetchReady(Result<Schedule, Error>),
     Update,
+    DateChanged(String),
 }
 
 pub struct GamesToday {
     link: ComponentLink<Self>,
     schedule: Option<Schedule>,
+    date: Date<Local>,
+    date_str: String,
     schedule_fetch: Option<FetchTask>,
     refresh: Option<IntervalTask>,
     update_button_ref: NodeRef,
@@ -27,8 +30,6 @@ pub struct GamesToday {
 
 impl GamesToday {
     fn fetch_json(&mut self) {
-        let date_time_now: DateTime<Local> = Local::now();
-        let date = date_time_now.date();
         let callback =
             self.link
                 .batch_callback(move |response: Response<Json<Result<Schedule, Error>>>| {
@@ -41,7 +42,7 @@ impl GamesToday {
                 });
         let request = Request::get(format!(
             "https://statsapi.web.nhl.com/api/v1/schedule?date={}",
-            date.format("%F")
+            self.date.format("%F")
         ))
         .body(Nothing)
         .unwrap();
@@ -63,9 +64,13 @@ impl Component for GamesToday {
     type Properties = ();
 
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
+        let date_time_now: DateTime<Local> = Local::now();
+        let date = date_time_now.date();
         let mut gt = Self {
             link,
             schedule: None,
+            date,
+            date_str: date.format("%F").to_string(),
             schedule_fetch: None,
             refresh: None,
             update_button_ref: NodeRef::default(),
@@ -86,6 +91,17 @@ impl Component for GamesToday {
                 } else {
                     false
                 }
+            }
+            Msg::DateChanged(date) => {
+                self.date_str = date.to_owned();
+                let date_only = NaiveDate::parse_from_str(&date, "%Y-%m-%d");
+                if let Ok(date) = date_only {
+                    let offset = js_sys::Date::new_0().get_timezone_offset() * 60.0;
+                    let tz = FixedOffset::west(offset as i32);
+                    self.date = Date::from_utc(date, tz);
+                    self.fetch_json();
+                }
+                true
             }
             Msg::Update => true,
         }
@@ -112,7 +128,7 @@ impl Component for GamesToday {
                 <div class="container mt-4">
 				<input id="date" type="text" value=date.format("%F")/>
                 <h1>
-                    { format!("Games Today: {}",schedule.total_games) }
+                    { format!("{}: {} games", self.date.format("%F"), schedule.total_games) }
                     <a class="btn btn-primary ms-3" ref=self.update_button_ref.clone()
                         onclick=self.link.callback(|_| Msg::Update)>{ "Update" }</a>
                 </h1>
@@ -149,6 +165,8 @@ impl Component for GamesToday {
                             }
                         }
                 }
+                <input id="date" type="text" value=self.date_str
+                    oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
                 </div>
             }
         } else {
