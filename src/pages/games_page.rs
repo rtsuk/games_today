@@ -98,6 +98,7 @@ impl Component for GamesToday {
     fn view(&self) -> Html {
         if let Some(schedule) = self.schedule.as_ref() {
             let date_time_now: DateTime<Local> = Local::now();
+	        let date = date_time_now.date();
             let offset = js_sys::Date::new_0().get_timezone_offset() * 60.0;
             let no_games = vec![];
             let games = schedule
@@ -109,6 +110,7 @@ impl Component for GamesToday {
                 games.iter().partition(|game| game.is_finished());
             html! {
                 <div class="container mt-4">
+				<input id="date" type="text" value=date.format("%F")/>
                 <h1>
                     { format!("Games Today: {}",schedule.total_games) }
                     <a class="btn btn-primary ms-3" ref=self.update_button_ref.clone()
