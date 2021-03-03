@@ -1,6 +1,7 @@
 use crate::Schedule;
 use anyhow::Error;
-use chrono::{Date, DateTime, FixedOffset, Local, NaiveDate};
+use chrono::{Date, DateTime, FixedOffset, Local};
+use chrono_english::{parse_date_string, Dialect};
 use std::time::Duration;
 use yew::{
     format::{Json, Nothing},
@@ -70,7 +71,7 @@ impl Component for GamesToday {
             link,
             schedule: None,
             date,
-            date_str: date.format("%F").to_string(),
+            date_str: date.format("%m/%d/%Y").to_string(),
             schedule_fetch: None,
             refresh: None,
             update_button_ref: NodeRef::default(),
@@ -94,13 +95,14 @@ impl Component for GamesToday {
             }
             Msg::DateChanged(date) => {
                 self.date_str = date.to_owned();
-                let date_only = NaiveDate::parse_from_str(&date, "%Y-%m-%d");
-                if let Ok(date) = date_only {
-                    let offset = js_sys::Date::new_0().get_timezone_offset() * 60.0;
-                    let tz = FixedOffset::west(offset as i32);
-                    self.date = Date::from_utc(date, tz);
+				let date_only = parse_date_string(&self.date_str, Local::now(), Dialect::Us);
+                if let Ok(date_time) = date_only {
+					let date = date_time.date();
+                    self.date = date;
                     self.fetch_json();
-                }
+					} else {
+						log::info!("date = {}", self.date_str);
+					}
                 true
             }
             Msg::Update => true,
@@ -114,7 +116,6 @@ impl Component for GamesToday {
     fn view(&self) -> Html {
         if let Some(schedule) = self.schedule.as_ref() {
             let date_time_now: DateTime<Local> = Local::now();
-	        let date = date_time_now.date();
             let offset = js_sys::Date::new_0().get_timezone_offset() * 60.0;
             let no_games = vec![];
             let games = schedule
@@ -126,7 +127,6 @@ impl Component for GamesToday {
                 games.iter().partition(|game| game.is_finished());
             html! {
                 <div class="container mt-4">
-				<input id="date" type="text" value=date.format("%F")/>
                 <h1>
                     { format!("{}: {} games", self.date.format("%F"), schedule.total_games) }
                     <a class="btn btn-primary ms-3" ref=self.update_button_ref.clone()
@@ -165,13 +165,8 @@ impl Component for GamesToday {
                             }
                         }
                 }
-                <div class="input-group date">
-                    <input id="date" class="form-control" type="text" value=self.date_str
-                        oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
-                        <span class="input-group-addon">
-                        <i class="glyphicon glyphicon-th"/>
-                        </span>
-                </div>
+                    <input id="date" type="text" value=self.date_str
+						oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
                 </div>
             }
         } else {
