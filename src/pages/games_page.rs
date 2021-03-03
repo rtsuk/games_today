@@ -165,8 +165,13 @@ impl Component for GamesToday {
                             }
                         }
                 }
-                <input id="date" type="text" value=self.date_str
-                    oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
+                <div class="input-group date">
+                    <input id="date" class="form-control" type="text" value=self.date_str
+                        oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
+                        <span class="input-group-addon">
+                        <i class="glyphicon glyphicon-th"/>
+                        </span>
+                </div>
                 </div>
             }
         } else {
