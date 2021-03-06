@@ -165,7 +165,7 @@ impl Component for GamesToday {
                             }
                         }
                 }
-                    <input id="date" type="text" value=self.date_str
+                    <input id="date" type="date" value=self.date_str
 						oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
                 </div>
             }
