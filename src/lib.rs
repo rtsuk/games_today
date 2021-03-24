@@ -5,34 +5,35 @@ mod pages;
 
 const SHARKS_ID: usize = 28;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Team {
     pub id: usize,
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TeamAtGame {
     pub score: usize,
     pub team: Team,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Teams {
     pub home: TeamAtGame,
     pub away: TeamAtGame,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
+    detailed_state: String,
     abstract_game_state: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     pub game_date: DateTime<Utc>,
@@ -73,6 +74,10 @@ impl Game {
 
     pub fn is_finished(&self) -> bool {
         self.status.abstract_game_state == "Final"
+    }
+
+    pub fn is_postponed(&self) -> bool {
+        self.status.detailed_state == "Postponed"
     }
 }
 

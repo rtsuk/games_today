@@ -1,6 +1,6 @@
 use crate::Schedule;
 use anyhow::Error;
-use chrono::{Date, DateTime, FixedOffset, Local};
+use chrono::{Date, DateTime, Local};
 use chrono_english::{parse_date_string, Dialect};
 use std::time::Duration;
 use yew::{
@@ -95,14 +95,14 @@ impl Component for GamesToday {
             }
             Msg::DateChanged(date) => {
                 self.date_str = date.to_owned();
-				let date_only = parse_date_string(&self.date_str, Local::now(), Dialect::Us);
+                let date_only = parse_date_string(&self.date_str, Local::now(), Dialect::Us);
                 if let Ok(date_time) = date_only {
-					let date = date_time.date();
+                    let date = date_time.date();
                     self.date = date;
                     self.fetch_json();
-					} else {
-						log::info!("date = {}", self.date_str);
-					}
+                } else {
+                    log::info!("date = {}", self.date_str);
+                }
                 true
             }
             Msg::Update => true,
@@ -123,8 +123,10 @@ impl Component for GamesToday {
                 .get(0)
                 .and_then(|date| Some(&date.games))
                 .unwrap_or(&no_games);
-            let (finished, unfinished): (Vec<_>, Vec<_>) =
-                games.iter().partition(|game| game.is_finished());
+
+            let finished: Vec<_> = games.iter().filter(|game| game.is_finished()).collect();
+            let unfinished: Vec<_> = games.iter().filter(|game| !game.is_finished()).collect();
+            let postponed: Vec<_> = games.iter().filter(|game| game.is_postponed()).collect();
             html! {
                 <div class="container mt-4">
                 <h1>
@@ -165,8 +167,28 @@ impl Component for GamesToday {
                             }
                         }
                 }
+                {
+                    if postponed.len() > 0 {
+                        html! {
+                            <div>
+                            <h2>{"Postponed"}</h2>
+                            <ul>
+                            {
+                                for postponed.iter().map(|game| html! {
+                                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                                })
+                            }
+                            </ul>
+                            </div>
+                        }
+                        } else {
+                            html! {
+                                <div></div>
+                            }
+                        }
+                }
                     <input id="date" type="date" value=self.date_str
-						oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
+                        oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
                 </div>
             }
         } else {
