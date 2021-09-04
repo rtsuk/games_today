@@ -45,8 +45,8 @@ impl Game {
     pub fn describe(&self, offset: f64) -> String {
         if self.is_finished() {
             format!(
-                "{} vs {}",
-                self.teams.home.team.name, self.teams.away.team.name,
+                "{} @ {}",
+                self.teams.away.team.name, self.teams.home.team.name,
             )
         } else {
             let tz = FixedOffset::west(offset as i32);
@@ -54,12 +54,12 @@ impl Game {
             let (pm, h) = t.hour12();
             let pm_str = if pm { "PM" } else { "AM" };
             format!(
-                "{} vs {} @ {}:{:02} {}",
-                self.teams.home.team.name,
-                self.teams.away.team.name,
+                "{: >2}:{:02} {} {} @ {}",
                 h,
                 t.minute(),
-                pm_str
+                pm_str,
+                self.teams.away.team.name,
+                self.teams.home.team.name,
             )
         }
     }

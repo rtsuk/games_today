@@ -1,1 +1,1 @@
-Rubn with `cargo make build/serve`
+Run with `cargo make build/serve`
