@@ -125,7 +125,10 @@ impl Component for GamesToday {
                 .unwrap_or(&no_games);
 
             let finished: Vec<_> = games.iter().filter(|game| game.is_finished()).collect();
-            let unfinished: Vec<_> = games.iter().filter(|game| !game.is_finished()).collect();
+            let unfinished: Vec<_> = games
+                .iter()
+                .filter(|game| !game.is_finished() && !game.is_postponed())
+                .collect();
             let postponed: Vec<_> = games.iter().filter(|game| game.is_postponed()).collect();
             html! {
                 <div class="container mt-4">
