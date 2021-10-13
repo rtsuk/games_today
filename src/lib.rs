@@ -37,6 +37,7 @@ pub struct Status {
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     pub game_date: DateTime<Utc>,
+    pub game_type: String,
     pub teams: Teams,
     pub status: Status,
 }
@@ -76,8 +77,43 @@ impl Game {
         self.status.abstract_game_state == "Final"
     }
 
+    pub fn is_regular_season(&self) -> bool {
+        self.game_type == "R"
+    }
+
     pub fn is_postponed(&self) -> bool {
         self.status.detailed_state == "Postponed"
+    }
+
+    pub fn has_competitor(&self, competitor: usize) -> bool {
+        self.teams.away.team.id == competitor || self.teams.home.team.id == competitor
+    }
+
+    pub fn winner(&self) -> (usize, String) {
+        if self.teams.away.score > self.teams.home.score {
+            (
+                self.teams.away.team.id,
+                self.teams.away.team.name.to_string(),
+            )
+        } else {
+            (
+                self.teams.home.team.id,
+                self.teams.home.team.name.to_string(),
+            )
+        }
+    }
+
+    pub fn check_for_handoff(&self, competitor: usize) -> Option<(usize, String)> {
+        if self.has_competitor(competitor) {
+            let (winner, name) = self.winner();
+            if winner != competitor {
+                Some((winner, name))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 
