@@ -1,10 +1,82 @@
 use anyhow::{anyhow, Error, Result};
-use chrono::{Date, Local, Utc};
-use games_today::Schedule;
+use chrono::{Date, Utc};
+use deunicode::deunicode;
+use games_today::{teams::*, Schedule, Team};
+use inflector::Inflector;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+const TEAMS_TEXT: &str = include_str!("../../data/teams.json");
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct AllTeams {
+    teams: Vec<Team>,
+}
+
+#[allow(unused)]
+const CAROLYN_TEAMS: [usize; 8] = [
+    VEGAS_GOLDEN_KNIGHTS_ID,
+    NEW_YORK_RANGERS_ID,
+    PHILADELPHIA_FLYERS_ID,
+    SEATTLE_KRAKEN_ID,
+    CHICAGO_BLACKHAWKS_ID,
+    PITTSBURGH_PENGUINS_ID,
+    COLUMBUS_BLUE_JACKETS_ID,
+    ANAHEIM_DUCKS_ID,
+];
+
+#[allow(unused)]
+const DAVID_TEAMS: [usize; 8] = [
+    COLORADO_AVALANCHE_ID,
+    VANCOUVER_CANUCKS_ID,
+    FLORIDA_PANTHERS_ID,
+    WASHINGTON_CAPITALS_ID,
+    TORONTO_MAPLE_LEAFS_ID,
+    OTTAWA_SENATORS_ID,
+    MONTREAL_CANADIENS_ID,
+    BUFFALO_SABRES_ID,
+];
+
+#[allow(unused)]
+const JEFF_TEAMS: [usize; 8] = [
+    TAMPA_BAY_LIGHTNING_ID,
+    CAROLINA_HURRICANES_ID,
+    DETROIT_RED_WINGS_ID,
+    EDMONTON_OILERS_ID,
+    MINNESOTA_WILD_ID,
+    ST_LOUIS_BLUES_ID,
+    LOS_ANGELES_KINGS_ID,
+    ARIZONA_COYOTES_ID,
+];
+
+#[allow(unused)]
+const ELIOTTE_TEAMS: [usize; 8] = [
+    NEW_YORK_ISLANDERS_ID,
+    WINNIPEG_JETS_ID,
+    DALLAS_STARS_ID,
+    BOSTON_BRUINS_ID,
+    CALGARY_FLAMES_ID,
+    NEW_JERSEY_DEVILS_ID,
+    NASHVILLE_PREDATORS_ID,
+    SAN_JOSE_SHARKS_ID,
+];
+
+#[allow(unused)]
+const URL: &'static str = "https://podcast.sportsnet.ca/31-thoughts/the-in-season-stanley-cup/";
 
 #[async_std::main]
 async fn main() -> Result<(), Error> {
+    if false {
+        let all_teams: AllTeams = serde_json::from_str(&TEAMS_TEXT).expect("from_str");
+        for team in all_teams.teams {
+            println!(
+                "pub const {}_ID : usize = {};",
+                deunicode(&team.name).to_screaming_snake_case(),
+                team.id
+            )
+        }
+    }
     let uri = "https://statsapi.web.nhl.com/api/v1/schedule?startDate=2021-10-12&endDate=2021-10-13&gameType=R";
     //    let uri = "https://statsapi.web.nhl.com/api/v1/schedule?season=20172018&gameType=R";
     let string: String = surf::get(uri)
