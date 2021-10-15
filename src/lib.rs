@@ -233,7 +233,7 @@ impl Default for Schedule {
 
 pub mod issc {
     use crate::{teams::*, Schedule};
-    use anyhow::{anyhow, Error};
+    use anyhow::Error;
     use chrono::{Date, Utc};
     use std::collections::HashMap;
 
@@ -296,14 +296,7 @@ pub mod issc {
     }
 
     impl InSeasonCupResults {
-        pub async fn new() -> Result<Self, Error> {
-            let uri = "https://statsapi.web.nhl.com/api/v1/schedule?startDate=2021-10-12&endDate=2021-10-15&gameType=R";
-            //    let uri = "https://statsapi.web.nhl.com/api/v1/schedule?season=20172018&gameType=R";
-            let string: String = surf::get(uri)
-                .recv_string()
-                .await
-                .map_err(|e| anyhow!("e: {}", e))?;
-            let schedule: Schedule = serde_json::from_str(&string)?;
+        pub fn new(schedule: Schedule) -> Result<Self, Error> {
             let mut last_transfer_date: Option<Date<Utc>> = None;
             let mut current_in_season = 14;
             let mut days_with_cup: HashMap<usize, usize> = HashMap::new();
