@@ -6,11 +6,11 @@ use std::time::Duration;
 use yew::{
     format::{Json, Nothing},
     prelude::*,
+    services::{
+        fetch::{FetchService, FetchTask, Request, Response},
+        interval::{IntervalService, IntervalTask},
+    },
     Component,
-};
-use yew_services::{
-    fetch::{FetchService, FetchTask, Request, Response},
-    interval::{IntervalService, IntervalTask},
 };
 
 pub enum Msg {
@@ -190,7 +190,7 @@ impl Component for GamesToday {
                             }
                         }
                 }
-                    <input id="date" type="date" value=self.date_str
+                    <input id="date" type="date" value=self.date_str.to_string()
                         oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
                 </div>
             }

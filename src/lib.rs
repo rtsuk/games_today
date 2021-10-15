@@ -181,7 +181,6 @@ mod web {
 
     use crate::pages::GamesToday;
 
-
     #[wasm_bindgen(start)]
     pub fn run_app() {
         wasm_logger::init(wasm_logger::Config::default());
