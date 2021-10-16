@@ -208,14 +208,14 @@ impl Game {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Date {
     pub date: chrono::NaiveDate,
     pub games: Vec<Game>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Schedule {
     pub total_games: usize,
@@ -237,7 +237,7 @@ pub mod issc {
     use chrono::{Date, Utc};
     use std::collections::HashMap;
 
-    const CAROLYN_TEAMS: [usize; 8] = [
+    const CAROLINE_TEAMS: [usize; 8] = [
         VEGAS_GOLDEN_KNIGHTS_ID,
         NEW_YORK_RANGERS_ID,
         PHILADELPHIA_FLYERS_ID,
@@ -270,7 +270,7 @@ pub mod issc {
         ARIZONA_COYOTES_ID,
     ];
 
-    const ELIOTTE_TEAMS: [usize; 8] = [
+    const ELLIOTTE_TEAMS: [usize; 8] = [
         NEW_YORK_ISLANDERS_ID,
         WINNIPEG_JETS_ID,
         DALLAS_STARS_ID,
@@ -283,9 +283,27 @@ pub mod issc {
 
     #[derive(Debug)]
     pub struct Handoff {
-        date: Date<Utc>,
-        from: usize,
-        to: usize,
+        pub date: Date<Utc>,
+        pub from: usize,
+        pub to: usize,
+    }
+
+    impl Handoff {
+        pub fn describe(&self) -> String {
+            format!(
+                "{} -> {}",
+                team_name(self.from),
+                team_name(self.to)
+            )
+        }
+    }
+
+    fn compare_standing(a: &(String, usize), b: &(String, usize)) -> std::cmp::Ordering {
+        let mut o = b.1.cmp(&a.1);
+        if o == std::cmp::Ordering::Equal {
+            o = a.0.cmp(&b.0);
+        }
+        o
     }
 
     #[derive(Default, Debug)]
@@ -338,10 +356,10 @@ pub mod issc {
             }
 
             let players = [
-                ("Carolyn", CAROLYN_TEAMS),
+                ("Caroline", CAROLINE_TEAMS),
                 ("David", DAVID_TEAMS),
                 ("Jeff", JEFF_TEAMS),
-                ("Elliotte", ELIOTTE_TEAMS),
+                ("Elliotte", ELLIOTTE_TEAMS),
             ];
 
             let mut standings = HashMap::new();
@@ -360,9 +378,20 @@ pub mod issc {
                 ..Default::default()
             })
         }
+
+        pub fn sorted_standings(&self) -> Vec<(String, usize)> {
+            let mut standings: Vec<_> = self
+                .standings
+                .iter()
+                .map(|(p, c)| (p.clone(), *c))
+                .collect();
+            standings.sort_by(compare_standing);
+            standings
+        }
     }
 }
 
+#[cfg(feature = "web_app")]
 mod web {
     use wasm_bindgen::prelude::*;
     use yew::prelude::*;
