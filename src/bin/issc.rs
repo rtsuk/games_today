@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Error, Result};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use games_today::{issc::InSeasonCupResults, Schedule};
 
 #[allow(unused)]
@@ -19,7 +19,8 @@ async fn main() -> Result<(), Error> {
         .await
         .map_err(|e| anyhow!("e: {}", e))?;
     let schedule: Schedule = serde_json::from_str(&string)?;
-    let insc = InSeasonCupResults::new(schedule)?;
+    let tz = Local::now();
+    let insc = InSeasonCupResults::new(schedule, tz.offset().utc_minus_local() as f64)?;
     dbg!(insc.sorted_standings());
     Ok(())
 }

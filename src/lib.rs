@@ -234,7 +234,7 @@ impl Default for Schedule {
 pub mod issc {
     use crate::{teams::*, Schedule};
     use anyhow::Error;
-    use chrono::{Date, Utc};
+    use chrono::{Date, FixedOffset, Utc};
     use std::collections::HashMap;
 
     const CAROLINE_TEAMS: [usize; 8] = [
@@ -283,18 +283,14 @@ pub mod issc {
 
     #[derive(Debug)]
     pub struct Handoff {
-        pub date: Date<Utc>,
+        pub date: Date<FixedOffset>,
         pub from: usize,
         pub to: usize,
     }
 
     impl Handoff {
         pub fn describe(&self) -> String {
-            format!(
-                "{} -> {}",
-                team_name(self.from),
-                team_name(self.to)
-            )
+            format!("{} -> {}", team_name(self.from), team_name(self.to))
         }
     }
 
@@ -314,34 +310,37 @@ pub mod issc {
     }
 
     impl InSeasonCupResults {
-        pub fn new(schedule: Schedule) -> Result<Self, Error> {
-            let mut last_transfer_date: Option<Date<Utc>> = None;
+        pub fn new(schedule: Schedule, offset: f64) -> Result<Self, Error> {
+            let mut last_transfer_date: Option<Date<_>> = None;
             let mut current_in_season = 14;
             let mut days_with_cup: HashMap<usize, usize> = HashMap::new();
             let mut handoffs = Vec::new();
+            let tz = FixedOffset::west(offset as i32);
             for date in schedule.dates {
                 for game in date.games {
                     if game.is_finished() && game.is_regular_season() {
                         if game.has_competitor(current_in_season) {
+                            let t = game.game_date.with_timezone(&tz);
+                            let d = t.date();
                             if let Some(new_holder) = game.check_for_handoff(current_in_season) {
                                 if let Some(last_transfer_date) = last_transfer_date {
-                                    let days = game.game_date.date() - last_transfer_date;
+                                    let days = d - last_transfer_date;
                                     let current_days =
                                         days_with_cup.entry(current_in_season).or_insert(0);
                                     *current_days += days.num_days() as usize;
                                     handoffs.push(Handoff {
-                                        date: game.game_date.date(),
+                                        date: d,
                                         from: current_in_season,
                                         to: new_holder,
                                     });
                                 } else {
                                     handoffs.push(Handoff {
-                                        date: game.game_date.date(),
+                                        date: d,
                                         from: 14,
                                         to: new_holder,
                                     });
                                 }
-                                last_transfer_date = Some(game.game_date.date());
+                                last_transfer_date = Some(d);
                                 current_in_season = new_holder;
                             }
                         }
@@ -350,9 +349,10 @@ pub mod issc {
             }
 
             if let Some(last_transfer_date) = last_transfer_date {
-                let days = Utc::today() - last_transfer_date;
+                let duration = Utc::today().with_timezone(&tz) - last_transfer_date;
+                let days = duration.num_days() + 1;
                 let current_days = days_with_cup.entry(current_in_season).or_insert(0);
-                *current_days += days.num_days() as usize;
+                *current_days += days as usize;
             }
 
             let players = [
