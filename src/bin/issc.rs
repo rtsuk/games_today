@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Error, Result};
-use chrono::{DateTime, Local, Utc};
+use chrono::Local;
 use games_today::{issc::InSeasonCupResults, Schedule};
 
 #[allow(unused)]
@@ -7,20 +7,19 @@ const URL: &'static str = "https://podcast.sportsnet.ca/31-thoughts/the-in-seaso
 
 #[async_std::main]
 async fn main() -> Result<(), Error> {
-    let date_time_now: DateTime<Utc> = Utc::now();
-    let date = date_time_now.date();
-    let uri = format!(
-        "https://statsapi.web.nhl.com/api/v1/schedule?startDate=2021-10-12&endDate={}&gameType=R",
-        date.format("%F")
-    );
-    dbg!(&uri);
+    let uri = "https://statsapi.web.nhl.com/api/v1/schedule?season=20212022&gameType=R";
     let string: String = surf::get(uri)
         .recv_string()
         .await
         .map_err(|e| anyhow!("e: {}", e))?;
     let schedule: Schedule = serde_json::from_str(&string)?;
     let tz = Local::now();
-    let insc = InSeasonCupResults::new(schedule, tz.offset().utc_minus_local() as f64)?;
-    dbg!(insc.sorted_standings());
+    let offset = tz.offset().utc_minus_local() as f64;
+    let insc = InSeasonCupResults::new(schedule, offset)?;
+    println!("standings = {:#?}", insc.sorted_standings());
+    println!(
+        "next = {}",
+        insc.next_game.unwrap().describe_upcoming(offset)
+    );
     Ok(())
 }
