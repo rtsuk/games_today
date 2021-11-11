@@ -17,9 +17,13 @@ async fn main() -> Result<(), Error> {
     let offset = tz.offset().utc_minus_local() as f64;
     let insc = InSeasonCupResults::new(schedule, offset)?;
     println!("standings = {:#?}", insc.sorted_standings());
-    println!(
-        "next = {}",
-        insc.next_game.unwrap().describe_upcoming(offset)
-    );
+    println!("team_map = {:#?}", insc.team_map);
+    for game in &insc.next_games {
+        println!(
+            "next = {} [{:?}]",
+            game.describe_upcoming(offset),
+            insc.team_map.get(&game.opposition(insc.current_in_season))
+        );
+    }
     Ok(())
 }

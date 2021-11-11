@@ -177,6 +177,13 @@ impl Game {
         )
     }
 
+    pub fn describe_upcoming_teams(&self) -> String {
+        format!(
+            "{} @ {}",
+            self.teams.away.team.name, self.teams.home.team.name,
+        )
+    }
+
     pub fn class(&self) -> String {
         if self.teams.home.team.id == teams::SAN_JOSE_SHARKS_ID
             || self.teams.away.team.id == teams::SAN_JOSE_SHARKS_ID
@@ -201,6 +208,15 @@ impl Game {
 
     pub fn has_competitor(&self, competitor: usize) -> bool {
         self.teams.away.team.id == competitor || self.teams.home.team.id == competitor
+    }
+
+    pub fn opposition(&self, competitor: usize) -> usize {
+        assert!(self.has_competitor(competitor));
+        if self.teams.away.team.id == competitor {
+            self.teams.home.team.id
+        } else {
+            self.teams.away.team.id
+        }
     }
 
     pub fn winner(&self) -> usize {
@@ -324,7 +340,9 @@ pub mod issc {
         pub team_stats: HashMap<usize, usize>,
         pub standings: HashMap<String, usize>,
         pub handoffs: Vec<Handoff>,
-        pub next_game: Option<Game>,
+        pub current_in_season: usize,
+        pub next_games: Vec<Game>,
+        pub team_map: HashMap<usize, String>,
     }
 
     impl InSeasonCupResults {
@@ -333,9 +351,9 @@ pub mod issc {
             let mut current_in_season = 14;
             let mut days_with_cup: HashMap<usize, usize> = HashMap::new();
             let mut handoffs = Vec::new();
-            let mut next_game = None;
+            let mut next_games = Vec::new();
             let tz = FixedOffset::west(offset as i32);
-            'date: for date in schedule.dates {
+            for date in schedule.dates {
                 for game in date.games {
                     if game.is_regular_season() {
                         if game.is_finished() {
@@ -366,11 +384,8 @@ pub mod issc {
                                 }
                             }
                         } else {
-                            if next_game.is_none() {
-                                if game.has_competitor(current_in_season) {
-                                    next_game = Some(game);
-                                    break 'date;
-                                }
+                            if game.has_competitor(current_in_season) {
+                                next_games.push(game);
                             }
                         }
                     }
@@ -391,11 +406,15 @@ pub mod issc {
                 ("Elliotte", ELLIOTTE_TEAMS),
             ];
 
+            let mut team_map = HashMap::new();
             let mut standings = HashMap::new();
             for (player, teams) in &players {
                 let days: usize = teams
                     .iter()
-                    .map(|team_id| days_with_cup.get(team_id).unwrap_or(&0))
+                    .map(|team_id| {
+                        team_map.insert(*team_id, player.to_string());
+                        days_with_cup.get(team_id).unwrap_or(&0)
+                    })
                     .sum();
                 standings.insert(player.to_string(), days);
             }
@@ -404,7 +423,9 @@ pub mod issc {
                 team_stats: days_with_cup,
                 standings,
                 handoffs,
-                next_game: next_game,
+                current_in_season,
+                next_games: next_games,
+                team_map,
                 ..Default::default()
             })
         }
@@ -417,6 +438,19 @@ pub mod issc {
                 .collect();
             standings.sort_by(compare_standing);
             standings
+        }
+
+        pub fn teams(player: &str) -> String {
+            let teams = match player {
+                "Caroline" => &CAROLINE_TEAMS,
+                "Jeff" => &JEFF_TEAMS,
+                "Elliotte" => &ELLIOTTE_TEAMS,
+                _ => &DAVID_TEAMS,
+            };
+
+            let mut team_names: Vec<_> = teams.iter().map(|team| team_name(*team)).collect();
+            team_names.sort();
+            team_names.join(", ")
         }
     }
 }
