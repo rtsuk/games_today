@@ -634,7 +634,18 @@ pub fn gordle_guesses(
         .map(|name| HashSet::from_iter(name.to_lowercase().chars()))
         .collect();
 
-    let valid_set = HashSet::from_iter(valid_letters.to_lowercase().chars());
+    let valid_set = HashSet::from_iter(valid_letters.to_lowercase().chars().filter_map(|c| {
+        if c != '.' {
+            Some(c)
+        } else {
+            None
+        }
+    }));
+    let valid_vec: Vec<_> = valid_letters
+        .to_lowercase()
+        .chars()
+        .map(|char| if char != '.' { Some(char) } else { None })
+        .collect();
     let bad_set = HashSet::from_iter(bad_letters.to_lowercase().chars());
     let placed: Vec<_> = placed_letters
         .to_lowercase()
@@ -653,6 +664,13 @@ pub fn gordle_guesses(
         if bad_intersection.len() == 0 {
             let intersection: HashSet<_> = valid_set.intersection(name_set).collect();
             if intersection.len() == valid_set.len() {
+                for (valid, test) in valid_vec.iter().zip(name.to_lowercase().chars()) {
+                    if valid.is_some() {
+                        if Some(test) == *valid {
+                            continue 'outer;
+                        }
+                    }
+                }
                 names.push(name.to_string());
             }
         }
