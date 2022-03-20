@@ -19,6 +19,7 @@ serde = "1.0.123"
 serde_json = "1.0"
 surf = "2.1.0"
 yew-router = { version = "0.15.0" }
+structopt = "0.3.26"
 
 [dependencies]
 anyhow = "1.0.38"

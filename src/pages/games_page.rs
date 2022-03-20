@@ -1,4 +1,4 @@
-use crate::Schedule;
+use crate::NextGameSchedule;
 use anyhow::Error;
 use chrono::{Date, DateTime, Local};
 use chrono_english::{parse_date_string, Dialect};
@@ -14,14 +14,15 @@ use yew::{
 };
 
 pub enum Msg {
-    FetchReady(Result<Schedule, Error>),
+    FetchReady(Result<NextGameSchedule, Error>),
     Update,
     DateChanged(String),
+    UpdateButton,
 }
 
 pub struct GamesToday {
     link: ComponentLink<Self>,
-    schedule: Option<Schedule>,
+    schedule: Option<NextGameSchedule>,
     date: Date<Local>,
     date_str: String,
     schedule_fetch: Option<FetchTask>,
@@ -31,18 +32,18 @@ pub struct GamesToday {
 
 impl GamesToday {
     fn fetch_json(&mut self) {
-        let callback =
-            self.link
-                .batch_callback(move |response: Response<Json<Result<Schedule, Error>>>| {
-                    let (meta, Json(data)) = response.into_parts();
-                    if meta.status.is_success() {
-                        Some(Msg::FetchReady(data))
-                    } else {
-                        None // FIXME: Handle this error accordingly.
-                    }
-                });
+        let callback = self.link.batch_callback(
+            move |response: Response<Json<Result<NextGameSchedule, Error>>>| {
+                let (meta, Json(data)) = response.into_parts();
+                if meta.status.is_success() {
+                    Some(Msg::FetchReady(data))
+                } else {
+                    None // FIXME: Handle this error accordingly.
+                }
+            },
+        );
         let request = Request::get(format!(
-            "https://statsapi.web.nhl.com/api/v1/schedule?date={}",
+            "https://statsapi.web.nhl.com/api/v1/schedule?expand=schedule.linescore&date={}",
             self.date.format("%F")
         ))
         .body(Nothing)
@@ -87,11 +88,16 @@ impl Component for GamesToday {
         match msg {
             Msg::FetchReady(result) => {
                 if let Ok(schedule) = result {
+                    log::info!("schedule = {:?}", schedule);
                     self.schedule = Some(schedule);
                     true
                 } else {
                     false
                 }
+            }
+            Msg::UpdateButton => {
+                self.fetch_json();
+                false
             }
             Msg::DateChanged(date) => {
                 self.date_str = date.to_owned();
@@ -115,7 +121,7 @@ impl Component for GamesToday {
 
     fn view(&self) -> Html {
         if let Some(schedule) = self.schedule.as_ref() {
-            let date_time_now: DateTime<Local> = Local::now();
+            // let date_time_now: DateTime<Local> = Local::now();
             let offset = js_sys::Date::new_0().get_timezone_offset() * 60.0;
             let no_games = vec![];
             let games = schedule
@@ -125,31 +131,60 @@ impl Component for GamesToday {
                 .unwrap_or(&no_games);
 
             let finished: Vec<_> = games.iter().filter(|game| game.is_finished()).collect();
-            let unfinished: Vec<_> = games
-                .iter()
-                .filter(|game| !game.is_finished() && !game.is_postponed())
-                .collect();
+            let live: Vec<_> = games.iter().filter(|game| game.is_live()).collect();
+            let preview: Vec<_> = games.iter().filter(|game| game.is_preview()).collect();
             let postponed: Vec<_> = games.iter().filter(|game| game.is_postponed()).collect();
             html! {
                 <div class="container mt-4">
                 <h1>
-                    { format!("{}: {} games", self.date.format("%F"), schedule.total_games) }
+                    { format!("{}: {} games", self.date.format("%F"), schedule.total_items) }
                     <a class="btn btn-primary ms-3" ref=self.update_button_ref.clone()
-                        onclick=self.link.callback(|_| Msg::Update)>{ "Update" }</a>
+                        onclick=self.link.callback(|_| Msg::UpdateButton)>{ "Update" }</a>
                 </h1>
-                <h2>
-                    {
-                        format!("In Progress and Upcoming at {}",
-                        date_time_now.time().format("%l:%M %P"))
-                    }
-                </h2>
-                <ul>
                 {
-                    for unfinished.iter().map(|game| html! {
-                        <li class=classes!(game.class())>{ game.describe(offset) }</li>
-                    })
+                    if live.len() > 0 {
+                        html! {
+                            <div>
+                            <h2>{"Live"}</h2>
+                            <ul>
+                            {
+                                for live.iter().map(|game| html! {
+                                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                                })
+                            }
+                            </ul>
+                            </div>
+                        }
+                        } else {
+                            html! {
+                                <div></div>
+                            }
+                        }
                 }
-                </ul>
+                {
+                    if preview.len() > 0 {
+                        html! {
+                            <div>
+                            <h2>
+                                {
+                                    "Upcoming"
+                                }
+                            </h2>
+                            <ul>
+                            {
+                                for preview .iter().map(|game| html! {
+                                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                                })
+                            }
+                            </ul>
+                            </div>
+                        }
+                        } else {
+                            html! {
+                                <div></div>
+                            }
+                        }
+                }
                 {
                     if finished.len() > 0 {
                         html! {

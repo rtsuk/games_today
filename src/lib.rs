@@ -1,5 +1,6 @@
 use chrono::{DateTime, FixedOffset, Timelike, Utc};
 use serde::{Deserialize, Serialize};
+use std::{collections::HashSet, iter::FromIterator};
 
 mod pages;
 
@@ -128,6 +129,24 @@ pub struct Status {
     abstract_game_state: String,
 }
 
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Linescore {
+    current_period: usize,
+    current_period_ordinal: String,
+    current_period_time_remaining: String,
+    #[serde(default)]
+    pub intermission_info: IntermissionInfo,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IntermissionInfo {
+    intermission_time_remaining: usize,
+    intermission_time_elapsed: usize,
+    in_intermission: bool,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
@@ -135,6 +154,8 @@ pub struct Game {
     pub game_type: String,
     pub teams: Teams,
     pub status: Status,
+    #[serde(default)]
+    pub linescore: Linescore,
 }
 
 impl Game {
@@ -144,6 +165,25 @@ impl Game {
                 "{} @ {}",
                 self.teams.away.team.name, self.teams.home.team.name,
             )
+        } else if self.is_live() {
+            if self.linescore.intermission_info.in_intermission {
+                format!(
+                    "{} @ {} {} {}:{:02} INT",
+                    self.teams.away.team.name,
+                    self.teams.home.team.name,
+                    self.linescore.current_period_ordinal,
+                    self.linescore.intermission_info.intermission_time_remaining / 60,
+                    self.linescore.intermission_info.intermission_time_remaining % 60
+                )
+            } else {
+                format!(
+                    "{} @ {} {} {}",
+                    self.teams.away.team.name,
+                    self.teams.home.team.name,
+                    self.linescore.current_period_ordinal,
+                    self.linescore.current_period_time_remaining
+                )
+            }
         } else {
             let tz = FixedOffset::west(offset as i32);
             let t = self.game_date.with_timezone(&tz).time();
@@ -206,6 +246,14 @@ impl Game {
         self.status.detailed_state == "Postponed"
     }
 
+    pub fn is_preview(&self) -> bool {
+        self.status.abstract_game_state == "Preview"
+    }
+
+    pub fn is_live(&self) -> bool {
+        self.status.abstract_game_state == "Live"
+    }
+
     pub fn has_competitor(&self, competitor: usize) -> bool {
         self.teams.away.team.id == competitor || self.teams.home.team.id == competitor
     }
@@ -253,6 +301,20 @@ pub struct Date {
 pub struct Schedule {
     pub total_games: usize,
     pub dates: Vec<Date>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GameDate {
+    pub date: String,
+    pub games: Vec<Game>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NextGameSchedule {
+    pub total_items: usize,
+    pub dates: Vec<GameDate>,
 }
 
 impl Default for Schedule {
@@ -512,54 +574,91 @@ pub const FIVE_LETTER_LAST_NAMES: &[&str] = &[
     "Haula", "Hayek", "Hayes", "Healy", "Heath", "Hecht", "Hedin", "Heidt", "Heins", "Hejda",
     "Henry", "Heron", "Hertl", "Hicke", "Hicks", "Himes", "Hinse", "Hintz", "Hnidy", "Hodge",
     "Hoene", "Hogue", "Holan", "Holik", "Holst", "Holtz", "Honka", "Horak", "Hordy", "Horne",
-    "Hossa", "Houck", "Houda", "Houde", "Hough", "Houle", "Howse", "Hoyda", "Hrkac", "Huard",
-    "Huber", "Hucul", "Huddy", "Hudon", "Hulse", "Huras", "Hurst", "Hyman", "Hynes", "Irmen",
-    "Irwin", "Issel", "James", "Janik", "Jaros", "Jarry", "Jenik", "Jerwa", "Jirik", "Johns",
-    "Jones", "Joyal", "Joyce", "Jurco", "Juzda", "Kabel", "Kadri", "Kaese", "Kahun", "Kakko",
-    "Kalus", "Kampf", "Kanko", "Kapla", "Karpa", "Katic", "Keane", "Keans", "Keats", "Kehoe",
-    "Keith", "Kelly", "Kempe", "Kenny", "Kerch", "Kindl", "Kisio", "Klatt", "Klein", "Klemm",
-    "Klima", "Kloos", "Knott", "Kocur", "Koivu", "Konan", "Konik", "Kopak", "Korab", "Kowal",
-    "Kozak", "Kozun", "Kraft", "Krahn", "Krake", "Krebs", "Kromm", "Krook", "Krupp", "Kruse",
-    "Kulak", "Kunin", "Kuntz", "Kurka", "Kurri", "Kurtz", "Kuzyk", "Kwong", "Kyrou", "LaDue",
-    "Labbe", "Labre", "Laich", "Laing", "Laird", "Lalor", "Lamby", "Latal", "Latos", "Latta",
-    "Lauen", "Lauer", "Lazar", "Leach", "Leahy", "Lebda", "Leddy", "Leduc", "Leger", "Legge",
-    "Lehto", "Leier", "Leino", "Leivo", "Lemay", "Lesuk", "Lever", "Levie", "Lewis", "Libby",
-    "Liles", "Lilja", "Lisin", "Loach", "Locas", "Locke", "Logan", "Loney", "Lowry", "Loyns",
-    "Lucas", "Lucic", "Luksa", "Lumme", "Lunde", "Lundy", "Luoma", "Lupul", "Lynch", "Lyons",
-    "Lysak", "Macey", "Magee", "Maggs", "Major", "Malec", "Maley", "Malik", "Manno", "Mario",
-    "Marks", "Marsh", "Maruk", "Mason", "Matte", "Mayer", "Mazur", "McKay", "McKee", "McKim",
-    "McNab", "McRae", "Meech", "Meeke", "Megan", "Meger", "Megna", "Meier", "Melin", "Meyer",
-    "Mezei", "Miehm", "Miele", "Migay", "Mikol", "Milks", "Mills", "Miner", "Minor", "Modin",
-    "Modry", "Moger", "Moher", "Mohns", "Molin", "Moore", "Moran", "Morin", "Moser", "Motin",
-    "Motte", "Moxey", "Mozik", "Munro", "Musil", "Myers", "Myles", "Nanne", "Necas", "Neely",
-    "Nevin", "Niemi", "Nieto", "Nigro", "Nilan", "Noble", "Nolan", "Nolet", "Noris", "Nosek",
-    "Novak", "Nowak", "Nurse", "Nyrop", "O'Ree", "Oates", "Oberg", "Obsut", "Oduya", "Olesz",
-    "Oliwa", "Olsen", "Olson", "Omark", "Orban", "Orlov", "Orpik", "Osala", "Oshie", "Panik",
-    "Pardy", "Parks", "Parro", "Parse", "Pasek", "Pasin", "Patey", "Payer", "Payne", "Peake",
-    "Pedan", "Pelyk", "Percy", "Perry", "Pesce", "Pesut", "Petan", "Petit", "Petry", "Phair",
-    "Pilar", "Pilon", "Pilut", "Pinho", "Pinto", "Pionk", "Pirri", "Pirus", "Pitre", "Pleau",
-    "Plett", "Plumb", "Pocza", "Poile", "Polak", "Polis", "Powis", "Pratt", "Price", "Propp",
-    "Prout", "Prpic", "Prust", "Pryor", "Pudas", "Puppa", "Pusie", "Pyatt", "Pysyk", "Quick",
-    "Quine", "Quinn", "Quint", "Radil", "Raffl", "Ralph", "Raska", "Ready", "Reeds", "Reedy",
-    "Reese", "Regan", "Regin", "Reich", "Reitz", "Resch", "Ricci", "Riley", "Rioux", "Rivet",
-    "Roach", "Roche", "Rodin", "Roest", "Rolfe", "Ronan", "Ronty", "Rosen", "Rossi", "Roupe",
-    "Rouse", "Runge", "Russo", "Ruutu", "Ryder", "Sabol", "Sacco", "Salei", "Samis", "Sands",
-    "Sarno", "Satan", "Sauer", "Sauve", "Sbisa", "Scott", "Sedin", "Segal", "Sejba", "Sejna",
-    "Sekac", "Selby", "Semak", "Semin", "Seney", "Seppa", "Shack", "Shand", "Shank", "Sharp",
-    "Sherf", "Shero", "Shill", "Shmyr", "Shore", "Short", "Shugg", "Shutt", "Simek", "Simon",
-    "Siren", "Sislo", "Sivek", "Skjei", "Slegr", "Sloan", "Smail", "Smart", "Smith", "Smrek",
-    "Smrke", "Smyth", "Sneep", "Snell", "Somik", "Sopel", "Soucy", "Speck", "Speer", "Srsen",
-    "Staal", "Starr", "Steen", "Stern", "Stock", "Stoll", "Stone", "Storm", "Storr", "Sturm",
-    "Suchy", "Sulak", "Surma", "Suter", "Suzor", "Swain", "Sydor", "Sykes", "Szura", "Taffe",
-    "Takko", "Tamer", "Tanev", "Tanti", "Tatar", "Terry", "Teves", "Thoms", "Thyer", "Tichy",
-    "Tidey", "Tiley", "Titov", "Toews", "Trapp", "Traub", "Tripp", "Tropp", "Tudin", "Tudor",
-    "Tufte", "Turco", "Turek", "Twist", "Tynan", "Ulmer", "Unger", "Urbom", "Vaive", "Vanek",
-    "Vaske", "Vasko", "Verot", "Vesce", "Vesey", "Virta", "Volek", "Vopat", "Voros", "Vrana",
-    "Waite", "Walsh", "Wares", "Watts", "Weber", "Weeks", "Weise", "Weiss", "Welch", "Wells",
-    "Welsh", "White", "Whyte", "Wiley", "Wilks", "Wiste", "Woods", "Wylie", "Wyman", "Yates",
-    "Yelle", "Young", "Zacha", "Zaine", "Zajac", "Zanon", "Zezel", "Zizka", "Zombo", "Zubov",
-    "Zykov",
+    "Hossa", "Houck", "Husso", "Houda", "Houde", "Hough", "Houle", "Howse", "Hoyda", "Hrkac",
+    "Huard", "Huber", "Hucul", "Huddy", "Hudon", "Hulse", "Huras", "Hurst", "Hyman", "Hynes",
+    "Irmen", "Irwin", "Issel", "James", "Janik", "Jaros", "Jarry", "Jenik", "Jerwa", "Jirik",
+    "Johns", "Jones", "Joyal", "Joyce", "Jurco", "Juzda", "Kabel", "Kadri", "Kaese", "Kahun",
+    "Kakko", "Kalus", "Kampf", "Kanko", "Kapla", "Karpa", "Katic", "Keane", "Keans", "Keats",
+    "Kehoe", "Keith", "Kelly", "Kempe", "Kenny", "Kerch", "Kindl", "Kisio", "Klatt", "Klein",
+    "Klemm", "Klima", "Kloos", "Knott", "Kocur", "Koivu", "Konan", "Konik", "Kopak", "Korab",
+    "Kowal", "Kozak", "Kozun", "Kraft", "Krahn", "Krake", "Krebs", "Kromm", "Krook", "Krupp",
+    "Kruse", "Kulak", "Kunin", "Kuntz", "Kurka", "Kurri", "Kurtz", "Kuzyk", "Kwong", "Kyrou",
+    "LaDue", "Labbe", "Labre", "Laich", "Laing", "Laird", "Lalor", "Lamby", "Latal", "Latos",
+    "Latta", "Lauen", "Lauer", "Lazar", "Leach", "Leahy", "Lebda", "Leddy", "Leduc", "Leger",
+    "Legge", "Lehto", "Leier", "Leino", "Leivo", "Lemay", "Lesuk", "Lever", "Levie", "Lewis",
+    "Libby", "Liles", "Lilja", "Lisin", "Loach", "Locas", "Locke", "Logan", "Loney", "Lowry",
+    "Loyns", "Lucas", "Lucic", "Luksa", "Lumme", "Lunde", "Lundy", "Luoma", "Lupul", "Lynch",
+    "Lyons", "Lysak", "Macey", "Magee", "Maggs", "Major", "Malec", "Maley", "Malik", "Manno",
+    "Mario", "Marks", "Marsh", "Maruk", "Mason", "Matte", "Mayer", "Mazur", "McKay", "McKee",
+    "McKim", "McNab", "McRae", "Meech", "Meeke", "Megan", "Meger", "Megna", "Meier", "Melin",
+    "Meyer", "Mezei", "Miehm", "Miele", "Migay", "Mikol", "Milks", "Mills", "Miner", "Minor",
+    "Modin", "Modry", "Moger", "Moher", "Mohns", "Molin", "Moore", "Moran", "Morin", "Moser",
+    "Motin", "Motte", "Moxey", "Mozik", "Munro", "Musil", "Myers", "Myles", "Nanne", "Necas",
+    "Neely", "Nevin", "Niemi", "Nieto", "Nigro", "Nilan", "Noble", "Nolan", "Nolet", "Noris",
+    "Nosek", "Novak", "Nowak", "Nurse", "Nyrop", "O'Ree", "Oates", "Oberg", "Obsut", "Oduya",
+    "Olesz", "Oliwa", "Olsen", "Olson", "Omark", "Orban", "Orlov", "Orpik", "Osala", "Oshie",
+    "Panik", "Pardy", "Parks", "Parro", "Parse", "Pasek", "Pasin", "Patey", "Payer", "Payne",
+    "Peake", "Pedan", "Pelyk", "Percy", "Perry", "Pesce", "Pesut", "Petan", "Petit", "Petry",
+    "Phair", "Pilar", "Pilon", "Pilut", "Pinho", "Pinto", "Pionk", "Pirri", "Pirus", "Pitre",
+    "Pleau", "Plett", "Plumb", "Pocza", "Poile", "Polak", "Polis", "Powis", "Pratt", "Price",
+    "Propp", "Prout", "Prpic", "Prust", "Pryor", "Pudas", "Puppa", "Pusie", "Pyatt", "Pysyk",
+    "Quick", "Quine", "Quinn", "Quint", "Radil", "Raffl", "Ralph", "Raska", "Ready", "Reeds",
+    "Reedy", "Reese", "Regan", "Regin", "Reich", "Reitz", "Resch", "Ricci", "Riley", "Rioux",
+    "Rivet", "Roach", "Roche", "Rodin", "Roest", "Rolfe", "Ronan", "Ronty", "Rosen", "Rossi",
+    "Roupe", "Rouse", "Runge", "Russo", "Ruutu", "Ryder", "Sabol", "Sacco", "Sakic", "Salei",
+    "Samis", "Sands", "Sarno", "Satan", "Sauer", "Sauve", "Sbisa", "Scott", "Sedin", "Segal",
+    "Sejba", "Sejna", "Sekac", "Selby", "Semak", "Semin", "Seney", "Seppa", "Shack", "Shand",
+    "Shank", "Sharp", "Sherf", "Shero", "Shill", "Shmyr", "Shore", "Short", "Shugg", "Shutt",
+    "Simek", "Simon", "Siren", "Sislo", "Sivek", "Skjei", "Slegr", "Sloan", "Smail", "Smart",
+    "Smith", "Smrek", "Smrke", "Smyth", "Sneep", "Snell", "Somik", "Sopel", "Soucy", "Speck",
+    "Speer", "Srsen", "Staal", "Starr", "Steen", "Stern", "Stock", "Stoll", "Stone", "Storm",
+    "Storr", "Sturm", "Suchy", "Sulak", "Surma", "Suter", "Suzor", "Swain", "Sydor", "Sykes",
+    "Szura", "Taffe", "Takko", "Tamer", "Tanev", "Tanti", "Tatar", "Terry", "Teves", "Thoms",
+    "Thyer", "Tichy", "Tidey", "Tiley", "Titov", "Toews", "Trapp", "Traub", "Tripp", "Tropp",
+    "Tudin", "Tudor", "Tufte", "Turco", "Turek", "Twist", "Tynan", "Ulmer", "Unger", "Urbom",
+    "Vaive", "Vanek", "Vaske", "Vasko", "Verot", "Vesce", "Vesey", "Virta", "Volek", "Vopat",
+    "Voros", "Vrana", "Waite", "Walsh", "Wares", "Watts", "Weber", "Weeks", "Weise", "Weiss",
+    "Welch", "Wells", "Welsh", "White", "Whyte", "Wiley", "Wilks", "Wiste", "Woods", "Wylie",
+    "Wyman", "Yates", "Yelle", "Young", "Zacha", "Zaine", "Zajac", "Zanon", "Zezel", "Zizka",
+    "Zombo", "Zubov", "Zykov",
 ];
+
+pub fn gordle_guesses(
+    valid_letters: String,
+    bad_letters: String,
+    placed_letters: String,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    let name_sets: Vec<HashSet<char>> = FIVE_LETTER_LAST_NAMES
+        .iter()
+        .map(|name| HashSet::from_iter(name.to_lowercase().chars()))
+        .collect();
+
+    let valid_set = HashSet::from_iter(valid_letters.to_lowercase().chars());
+    let bad_set = HashSet::from_iter(bad_letters.to_lowercase().chars());
+    let placed: Vec<_> = placed_letters
+        .to_lowercase()
+        .chars()
+        .map(|char| if char != '.' { Some(char) } else { None })
+        .collect();
+    'outer: for (name_set, name) in name_sets.iter().zip(FIVE_LETTER_LAST_NAMES.iter()) {
+        for (placed, test) in placed.iter().zip(name.to_lowercase().chars()) {
+            if placed.is_some() {
+                if Some(test) != *placed {
+                    continue 'outer;
+                }
+            }
+        }
+        let bad_intersection: HashSet<_> = bad_set.intersection(name_set).collect();
+        if bad_intersection.len() == 0 {
+            let intersection: HashSet<_> = valid_set.intersection(name_set).collect();
+            if intersection.len() == valid_set.len() {
+                names.push(name.to_string());
+            }
+        }
+    }
+    names
+}
 
 #[cfg(feature = "web_app")]
 mod web {
@@ -575,4 +674,3 @@ mod web {
         App::<GamesToday>::new().mount_to_body();
     }
 }
-
