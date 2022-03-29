@@ -1,6 +1,6 @@
-use anyhow::{Error, Result};
-use games_today::{gordle_guesses, FIVE_LETTER_LAST_NAMES};
-use std::collections::BTreeMap;
+use anyhow::{anyhow, Error, Result};
+use games_today::{gordle_guesses, FranchiseData, PlayerRecordData, FIVE_LETTER_LAST_NAMES};
+use std::collections::{BTreeMap, BTreeSet};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -12,6 +12,8 @@ struct Opts {
     placed_letters: String,
     #[structopt(long, default_value = "")]
     bad_letters: String,
+    #[structopt(long)]
+    names: bool,
 }
 
 impl Opts {
@@ -75,11 +77,52 @@ fn calculate_frequencies() -> Result<(), Error> {
     Ok(())
 }
 
+async fn get_names() -> Result<BTreeSet<String>, Error> {
+    let mut names = BTreeSet::new();
+    let uri = "https://records.nhl.com/site/api/franchise";
+    let string: String = surf::get(uri)
+        .recv_string()
+        .await
+        .map_err(|e| anyhow!("e: {}", e))?;
+    let franchises: FranchiseData = serde_json::from_str(&string)?;
+    for franchise in franchises.data {
+        let goalie_uri = format!(
+            "https://records.nhl.com/site/api/franchise-goalie-records?cayenneExp=franchiseId={}",
+            franchise.id
+        );
+        let string: String = surf::get(goalie_uri)
+            .recv_string()
+            .await
+            .map_err(|e| anyhow!("e: {}", e))?;
+        let goalies: PlayerRecordData = serde_json::from_str(&string)?;
+
+        let skater_uri = format!(
+            "https://records.nhl.com/site/api/franchise-skater-records?cayenneExp=franchiseId={}",
+            franchise.id
+        );
+        let string: String = surf::get(skater_uri)
+            .recv_string()
+            .await
+            .map_err(|e| anyhow!("e: {}", e))?;
+        let skaters: PlayerRecordData = serde_json::from_str(&string)?;
+
+        for player in goalies.data.iter().chain(skaters.data.iter()) {
+            if player.last_name.len() == 5 {
+                names.insert(player.last_name.clone());
+            }
+        }
+    }
+    Ok(names)
+}
+
 #[async_std::main]
 async fn main() -> Result<(), Error> {
     let opt = Opts::from_args();
 
-    if opt.is_blank() {
+    if opt.names {
+        let names = get_names().await;
+        println!("names = {:#?}", names);
+    } else if opt.is_blank() {
         calculate_frequencies()?;
     } else {
         let names = gordle_guesses(opt.valid_letters, opt.bad_letters, opt.placed_letters);
