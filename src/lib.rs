@@ -133,7 +133,9 @@ pub struct Status {
 #[serde(rename_all = "camelCase")]
 pub struct Linescore {
     current_period: usize,
+    #[serde(default)]
     current_period_ordinal: String,
+    #[serde(default)]
     current_period_time_remaining: String,
     #[serde(default)]
     pub intermission_info: IntermissionInfo,

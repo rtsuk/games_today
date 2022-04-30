@@ -1,10 +1,19 @@
 use anyhow::{anyhow, Error, Result};
 use chrono::Local;
 use games_today::NextGameSchedule;
+use structopt::StructOpt;
+
+#[derive(Debug, StructOpt)]
+struct Opts {
+    #[structopt(long)]
+    date: Option<String>
+}
 
 #[async_std::main]
 async fn main() -> Result<(), Error> {
-    let uri = "https://statsapi.web.nhl.com/api/v1/schedule?expand=schedule.linescore";
+    let opt = Opts::from_args();
+    let date = opt.date.unwrap_or(String::from("2022-05-02"));
+    let uri = format!("https://statsapi.web.nhl.com/api/v1/schedule?expand=schedule.linescore&date={}", date);
     let string: String = surf::get(uri)
         .recv_string()
         .await
