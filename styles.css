@@ -10,3 +10,8 @@ li.sharks {
     background-color: #006D75;
     color: white;
 }
+
+img.logo {
+    height: 1em;
+    margin: 0.2em;
+}

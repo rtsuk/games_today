@@ -1,7 +1,10 @@
 use chrono::{DateTime, FixedOffset, Timelike, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, iter::FromIterator};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::FromIterator,
+};
 
 pub mod pages;
 
@@ -165,6 +168,7 @@ fn parse_preview_string(preview: &str) -> Option<String> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
+    pub game_pk: usize,
     pub game_date: DateTime<Utc>,
     pub game_type: String,
     pub content: ContentLink,
@@ -213,6 +217,15 @@ impl Game {
                 self.teams.away.team.name,
                 self.teams.home.team.name,
             )
+        }
+    }
+
+    pub fn describe_with_preview(&self, offset: f64, previews: &HashMap<usize, String>) -> String {
+        let preview = previews.get(&self.game_pk).cloned().unwrap_or_default();
+        if preview.len() > 0 {
+            format!("{} ({})", self.describe(offset), preview)
+        } else {
+            self.describe(offset)
         }
     }
 

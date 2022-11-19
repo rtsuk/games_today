@@ -1,14 +1,39 @@
-use crate::NextGameSchedule;
+use crate::{Content, Game, NextGameSchedule};
 use anyhow::Error;
 use chrono::{DateTime, Local};
 use chrono_english::{parse_date_string, Dialect};
 use gloo_net::http::Request;
+use std::collections::HashMap;
 use web_sys::HtmlInputElement;
 use yew::{prelude::*, Component};
+
+type PreviewStrings = HashMap<usize, String>;
+
+fn images_for_preview(game: &Game, previews: &PreviewStrings) -> Html {
+    let preview = previews.get(&game.game_pk).cloned().unwrap_or_default();
+    let us_avail: Vec<String> = preview
+        .split(",")
+        .filter_map(|broadcaster| match broadcaster.trim() {
+            "ESPN+" | "NHLN" | "TNT" | "NBCSCA" => Some(broadcaster.to_owned()),
+            _ => None,
+        })
+        .collect();
+    log::info!("images_for_preview {}", preview);
+    html! {
+        <>
+        {
+            for us_avail.iter().map(|broadcaster| html! {
+                <img class="logo" src={ format!("images/{}.png", broadcaster.trim().replace(" ", "_"))} />
+            })
+        }
+        </>
+    }
+}
 
 #[allow(unused)]
 pub enum Msg {
     FetchReady(Result<NextGameSchedule, Error>),
+    PreviewReady(usize, String),
     Update,
     DateChanged(String),
     UpdateButton,
@@ -16,6 +41,7 @@ pub enum Msg {
 
 pub struct GamesToday {
     schedule: Option<NextGameSchedule>,
+    previews: PreviewStrings,
     date: DateTime<Local>,
     date_str: String,
     // schedule_fetch: Option<FetchTask>,
@@ -39,6 +65,28 @@ impl GamesToday {
             .json()
             .await
             .unwrap();
+
+            for date in &fetched_schedule.dates {
+                for game in &date.games {
+                    let game_pk = game.game_pk;
+                    let uri = format!("https://statsapi.web.nhl.com/{}", game.content.link);
+                    let preview_link = link.clone();
+                    wasm_bindgen_futures::spawn_local(async move {
+                        let content: Content = Request::get(&uri)
+                            .send()
+                            .await
+                            .unwrap()
+                            .json()
+                            .await
+                            .unwrap();
+                        preview_link.send_message(Msg::PreviewReady(
+                            game_pk,
+                            content.preview_string().unwrap_or_default(),
+                        ));
+                    });
+                }
+            }
+
             link.send_message(Msg::FetchReady(Ok(fetched_schedule)));
         });
     }
@@ -53,6 +101,7 @@ impl Component for GamesToday {
         let date = date_time_now;
         let mut gt = Self {
             schedule: None,
+            previews: Default::default(),
             date,
             date_str: date.format("%m/%d/%Y").to_string(),
             update_button_ref: NodeRef::default(),
@@ -63,9 +112,14 @@ impl Component for GamesToday {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::PreviewReady(game_pk, preview_string) => {
+                self.previews.insert(game_pk, preview_string);
+                true
+            }
             Msg::FetchReady(result) => {
                 if let Ok(schedule) = result {
                     self.schedule = Some(schedule);
+                    self.previews = Default::default();
                     true
                 } else {
                     false
@@ -120,7 +174,9 @@ impl Component for GamesToday {
                             <ul>
                             {
                                 for live.iter().map(|game| html! {
-                                    <li class={classes!(game.class())}>{ game.describe(offset) }</li>
+                                    <li class={classes!(game.class())}>{ game.describe(offset) }
+                                    { images_for_preview(game, &self.previews) }
+                                    </li>
                                 })
                             }
                             </ul>
@@ -144,7 +200,10 @@ impl Component for GamesToday {
                             <ul>
                             {
                                 for preview .iter().map(|game| html! {
-                                    <li class={classes!(game.class())}>{ game.describe(offset) }</li>
+                                    <li class={classes!(game.class())}>
+                                    { game.describe(offset) }
+                                    { images_for_preview(game, &self.previews) }
+                                    </li>
                                 })
                             }
                             </ul>
