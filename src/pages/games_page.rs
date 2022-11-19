@@ -1,18 +1,12 @@
 use crate::NextGameSchedule;
 use anyhow::Error;
-use chrono::{Date, DateTime, Local};
+use chrono::{DateTime, Local};
 use chrono_english::{parse_date_string, Dialect};
-use std::time::Duration;
-use yew::{
-    format::{Json, Nothing},
-    prelude::*,
-    services::{
-        fetch::{FetchService, FetchTask, Request, Response},
-        interval::{IntervalService, IntervalTask},
-    },
-    Component,
-};
+use gloo_net::http::Request;
+use web_sys::HtmlInputElement;
+use yew::{prelude::*, Component};
 
+#[allow(unused)]
 pub enum Msg {
     FetchReady(Result<NextGameSchedule, Error>),
     Update,
@@ -21,43 +15,32 @@ pub enum Msg {
 }
 
 pub struct GamesToday {
-    link: ComponentLink<Self>,
     schedule: Option<NextGameSchedule>,
-    date: Date<Local>,
+    date: DateTime<Local>,
     date_str: String,
-    schedule_fetch: Option<FetchTask>,
-    refresh: Option<IntervalTask>,
+    // schedule_fetch: Option<FetchTask>,
+    // refresh: Option<IntervalTask>,
     update_button_ref: NodeRef,
 }
 
 impl GamesToday {
-    fn fetch_json(&mut self) {
-        let callback = self.link.batch_callback(
-            move |response: Response<Json<Result<NextGameSchedule, Error>>>| {
-                let (meta, Json(data)) = response.into_parts();
-                if meta.status.is_success() {
-                    Some(Msg::FetchReady(data))
-                } else {
-                    None // FIXME: Handle this error accordingly.
-                }
-            },
-        );
-        let request = Request::get(format!(
-            "https://statsapi.web.nhl.com/api/v1/schedule?expand=schedule.linescore&date={}",
-            self.date.format("%F")
-        ))
-        .body(Nothing)
-        .unwrap();
-        let task = FetchService::fetch(request, callback).unwrap();
-        self.schedule_fetch = Some(task);
-    }
-
-    fn start_refresh_timer(&mut self) {
-        let task = IntervalService::spawn(
-            Duration::from_secs(30 * 60),
-            self.link.callback(|_| Msg::Update),
-        );
-        self.refresh = Some(task);
+    fn fetch_schedule(&mut self, ctx: &Context<Self>) {
+        log::info!("fetch_schedule");
+        let link = ctx.link().clone();
+        let date = self.date;
+        wasm_bindgen_futures::spawn_local(async move {
+            let fetched_schedule: NextGameSchedule = Request::get(&format!(
+                "https://statsapi.web.nhl.com/api/v1/schedule?expand=schedule.linescore&date={}",
+                date.format("%F")
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+            link.send_message(Msg::FetchReady(Ok(fetched_schedule)));
+        });
     }
 }
 
@@ -65,30 +48,23 @@ impl Component for GamesToday {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
         let date_time_now: DateTime<Local> = Local::now();
-        let date = date_time_now.date();
+        let date = date_time_now;
         let mut gt = Self {
-            link,
             schedule: None,
             date,
             date_str: date.format("%m/%d/%Y").to_string(),
-            schedule_fetch: None,
-            refresh: None,
             update_button_ref: NodeRef::default(),
         };
-        gt.fetch_json();
-        gt.start_refresh_timer();
+        gt.fetch_schedule(ctx);
         gt
     }
 
-    fn rendered(&mut self, _first_render: bool) {}
-
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::FetchReady(result) => {
                 if let Ok(schedule) = result {
-                    log::info!("schedule = {:?}", schedule);
                     self.schedule = Some(schedule);
                     true
                 } else {
@@ -96,16 +72,15 @@ impl Component for GamesToday {
                 }
             }
             Msg::UpdateButton => {
-                self.fetch_json();
+                self.fetch_schedule(ctx);
                 false
             }
             Msg::DateChanged(date) => {
                 self.date_str = date.to_owned();
                 let date_only = parse_date_string(&self.date_str, Local::now(), Dialect::Us);
                 if let Ok(date_time) = date_only {
-                    let date = date_time.date();
-                    self.date = date;
-                    self.fetch_json();
+                    self.date = date_time;
+                    self.fetch_schedule(ctx);
                 } else {
                     log::info!("date = {}", self.date_str);
                 }
@@ -115,11 +90,7 @@ impl Component for GamesToday {
         }
     }
 
-    fn change(&mut self, _: Self::Properties) -> ShouldRender {
-        true
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         if let Some(schedule) = self.schedule.as_ref() {
             // let date_time_now: DateTime<Local> = Local::now();
             let offset = js_sys::Date::new_0().get_timezone_offset() * 60.0;
@@ -138,8 +109,8 @@ impl Component for GamesToday {
                 <div class="container mt-4">
                 <h1>
                     { format!("{}: {} games", self.date.format("%F"), schedule.total_items) }
-                    <a class="btn btn-primary ms-3" ref=self.update_button_ref.clone()
-                        onclick=self.link.callback(|_| Msg::UpdateButton)>{ "Update" }</a>
+                    <a class="btn btn-primary ms-3" ref={ self.update_button_ref.clone() }
+                        onclick={ ctx.link().callback(|_| Msg::UpdateButton)}>{ "Update" }</a>
                 </h1>
                 {
                     if live.len() > 0 {
@@ -149,7 +120,7 @@ impl Component for GamesToday {
                             <ul>
                             {
                                 for live.iter().map(|game| html! {
-                                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                                    <li class={classes!(game.class())}>{ game.describe(offset) }</li>
                                 })
                             }
                             </ul>
@@ -173,7 +144,7 @@ impl Component for GamesToday {
                             <ul>
                             {
                                 for preview .iter().map(|game| html! {
-                                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                                    <li class={classes!(game.class())}>{ game.describe(offset) }</li>
                                 })
                             }
                             </ul>
@@ -193,7 +164,7 @@ impl Component for GamesToday {
                             <ul>
                             {
                                 for finished.iter().map(|game| html! {
-                                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                                    <li class={classes!(game.class())}>{ game.describe(offset) }</li>
                                 })
                             }
                             </ul>
@@ -213,7 +184,7 @@ impl Component for GamesToday {
                             <ul>
                             {
                                 for postponed.iter().map(|game| html! {
-                                    <li class=classes!(game.class())>{ game.describe(offset) }</li>
+                                    <li class={classes!(game.class())}>{ game.describe(offset) }</li>
                                 })
                             }
                             </ul>
@@ -225,8 +196,11 @@ impl Component for GamesToday {
                             }
                         }
                 }
-                    <input id="date" type="date" value=self.date_str.to_string()
-                        oninput=self.link.callback(|e: InputData| Msg::DateChanged(e.value))/>
+                    <input id="date" type="date" value={self.date_str.to_string()}
+                        oninput={ctx.link().callback(|e: InputEvent| {
+                            let input: HtmlInputElement = e.target_unchecked_into();
+
+                            Msg::DateChanged(input.value())})}/>
                 </div>
             }
         } else {

@@ -1,0 +1,12 @@
+ul {
+    list-style-type: none;
+}
+
+li {
+    padding: 5px 20px;
+}
+
+li.sharks {
+    background-color: #006D75;
+    color: white;
+}
