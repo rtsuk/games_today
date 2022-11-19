@@ -1,4 +1,5 @@
 use chrono::{DateTime, FixedOffset, Timelike, Utc};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, iter::FromIterator};
 
@@ -151,9 +152,22 @@ pub struct IntermissionInfo {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct ContentLink {
+    pub link: String,
+}
+
+fn parse_preview_string(preview: &str) -> Option<String> {
+    let re = Regex::new(r"[^;]+;\s*([^<]+)").ok()?;
+    let captures = re.captures(preview)?;
+    Some(captures.get(1)?.as_str().to_string())
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Game {
     pub game_date: DateTime<Utc>,
     pub game_type: String,
+    pub content: ContentLink,
     pub teams: Teams,
     pub status: Status,
     #[serde(default)]
@@ -288,6 +302,38 @@ impl Game {
         } else {
             None
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewItem {
+    preview: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Preview {
+    title: String,
+    items: Vec<PreviewItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Editorial {
+    preview: Preview,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Content {
+    link: String,
+    editorial: Editorial,
+}
+
+impl Content {
+    pub fn preview_string(&self) -> Option<String> {
+        parse_preview_string(&self.editorial.preview.items.get(0)?.preview)
     }
 }
 
@@ -699,5 +745,19 @@ mod web {
     pub fn run_app() {
         wasm_logger::init(wasm_logger::Config::default());
         App::<GamesToday>::new().mount_to_body();
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_preview_str() {
+        const PREVIEW_STRING: &str = "<h4><b>RED WINGS (7-5-4) at SHARKS (6-9-3)</b></h4><h5><b>10:30 p.m. ET; NBCSCA, BSDET, ESPN+, SN NOW</b><br />&nbsp;</h5>";
+
+        let parsed = parse_preview_string(PREVIEW_STRING).unwrap();
+
+        assert_eq!("NBCSCA, BSDET, ESPN+, SN NOW", &parsed);
     }
 }
