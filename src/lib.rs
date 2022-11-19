@@ -201,7 +201,7 @@ impl Game {
                 )
             }
         } else {
-            let tz = FixedOffset::west(offset as i32);
+            let tz = FixedOffset::west_opt(offset as i32).unwrap();
             let t = self.game_date.with_timezone(&tz).time();
             let (pm, h) = t.hour12();
             let pm_str = if pm { "PM" } else { "AM" };
@@ -217,7 +217,7 @@ impl Game {
     }
 
     pub fn describe_upcoming(&self, offset: f64) -> String {
-        let tz = FixedOffset::west(offset as i32);
+        let tz = FixedOffset::west_opt(offset as i32).unwrap();
         let d = self.game_date.with_timezone(&tz);
         let t = d.time();
         let (pm, h) = t.hour12();
@@ -398,197 +398,6 @@ pub struct PlayerRecord {
 #[serde(rename_all = "camelCase")]
 pub struct PlayerRecordData {
     pub data: Vec<PlayerRecord>,
-}
-
-pub mod issc {
-    use crate::{teams::*, Game, Schedule};
-    use anyhow::Error;
-    use chrono::{Date, FixedOffset, Utc};
-    use std::collections::HashMap;
-
-    const CAROLINE_TEAMS: [usize; 8] = [
-        VEGAS_GOLDEN_KNIGHTS_ID,
-        NEW_YORK_RANGERS_ID,
-        PHILADELPHIA_FLYERS_ID,
-        SEATTLE_KRAKEN_ID,
-        CHICAGO_BLACKHAWKS_ID,
-        PITTSBURGH_PENGUINS_ID,
-        COLUMBUS_BLUE_JACKETS_ID,
-        ANAHEIM_DUCKS_ID,
-    ];
-
-    const DAVID_TEAMS: [usize; 8] = [
-        COLORADO_AVALANCHE_ID,
-        VANCOUVER_CANUCKS_ID,
-        FLORIDA_PANTHERS_ID,
-        WASHINGTON_CAPITALS_ID,
-        TORONTO_MAPLE_LEAFS_ID,
-        OTTAWA_SENATORS_ID,
-        MONTREAL_CANADIENS_ID,
-        BUFFALO_SABRES_ID,
-    ];
-
-    const JEFF_TEAMS: [usize; 8] = [
-        TAMPA_BAY_LIGHTNING_ID,
-        CAROLINA_HURRICANES_ID,
-        DETROIT_RED_WINGS_ID,
-        EDMONTON_OILERS_ID,
-        MINNESOTA_WILD_ID,
-        ST_LOUIS_BLUES_ID,
-        LOS_ANGELES_KINGS_ID,
-        ARIZONA_COYOTES_ID,
-    ];
-
-    const ELLIOTTE_TEAMS: [usize; 8] = [
-        NEW_YORK_ISLANDERS_ID,
-        WINNIPEG_JETS_ID,
-        DALLAS_STARS_ID,
-        BOSTON_BRUINS_ID,
-        CALGARY_FLAMES_ID,
-        NEW_JERSEY_DEVILS_ID,
-        NASHVILLE_PREDATORS_ID,
-        SAN_JOSE_SHARKS_ID,
-    ];
-
-    #[derive(Debug)]
-    pub struct Handoff {
-        pub date: Date<FixedOffset>,
-        pub from: usize,
-        pub to: usize,
-    }
-
-    impl Handoff {
-        pub fn describe(&self) -> String {
-            format!("{} -> {}", team_name(self.from), team_name(self.to))
-        }
-    }
-
-    fn compare_standing(a: &(String, usize), b: &(String, usize)) -> std::cmp::Ordering {
-        let mut o = b.1.cmp(&a.1);
-        if o == std::cmp::Ordering::Equal {
-            o = a.0.cmp(&b.0);
-        }
-        o
-    }
-
-    #[derive(Default, Debug)]
-    pub struct InSeasonCupResults {
-        pub team_stats: HashMap<usize, usize>,
-        pub standings: HashMap<String, usize>,
-        pub handoffs: Vec<Handoff>,
-        pub current_in_season: usize,
-        pub next_games: Vec<Game>,
-        pub team_map: HashMap<usize, String>,
-    }
-
-    impl InSeasonCupResults {
-        pub fn new(schedule: Schedule, offset: f64) -> Result<Self, Error> {
-            let mut last_transfer_date: Option<Date<_>> = None;
-            let mut current_in_season = 14;
-            let mut days_with_cup: HashMap<usize, usize> = HashMap::new();
-            let mut handoffs = Vec::new();
-            let mut next_games = Vec::new();
-            let tz = FixedOffset::west(offset as i32);
-            for date in schedule.dates {
-                for game in date.games {
-                    if game.is_regular_season() {
-                        if game.is_finished() {
-                            if game.has_competitor(current_in_season) {
-                                let t = game.game_date.with_timezone(&tz);
-                                let d = t.date();
-                                if let Some(new_holder) = game.check_for_handoff(current_in_season)
-                                {
-                                    if let Some(last_transfer_date) = last_transfer_date {
-                                        let days = d - last_transfer_date;
-                                        let current_days =
-                                            days_with_cup.entry(current_in_season).or_insert(0);
-                                        *current_days += days.num_days() as usize;
-                                        handoffs.push(Handoff {
-                                            date: d,
-                                            from: current_in_season,
-                                            to: new_holder,
-                                        });
-                                    } else {
-                                        handoffs.push(Handoff {
-                                            date: d,
-                                            from: 14,
-                                            to: new_holder,
-                                        });
-                                    }
-                                    last_transfer_date = Some(d);
-                                    current_in_season = new_holder;
-                                }
-                            }
-                        } else {
-                            if game.has_competitor(current_in_season) {
-                                next_games.push(game);
-                            }
-                        }
-                    }
-                }
-            }
-
-            if let Some(last_transfer_date) = last_transfer_date {
-                let duration = Utc::today().with_timezone(&tz) - last_transfer_date;
-                let days = duration.num_days();
-                let current_days = days_with_cup.entry(current_in_season).or_insert(0);
-                *current_days += days as usize;
-            }
-
-            let players = [
-                ("Caroline", CAROLINE_TEAMS),
-                ("David", DAVID_TEAMS),
-                ("Jeff", JEFF_TEAMS),
-                ("Elliotte", ELLIOTTE_TEAMS),
-            ];
-
-            let mut team_map = HashMap::new();
-            let mut standings = HashMap::new();
-            for (player, teams) in &players {
-                let days: usize = teams
-                    .iter()
-                    .map(|team_id| {
-                        team_map.insert(*team_id, player.to_string());
-                        days_with_cup.get(team_id).unwrap_or(&0)
-                    })
-                    .sum();
-                standings.insert(player.to_string(), days);
-            }
-
-            Ok(Self {
-                team_stats: days_with_cup,
-                standings,
-                handoffs,
-                current_in_season,
-                next_games: next_games,
-                team_map,
-                ..Default::default()
-            })
-        }
-
-        pub fn sorted_standings(&self) -> Vec<(String, usize)> {
-            let mut standings: Vec<_> = self
-                .standings
-                .iter()
-                .map(|(p, c)| (p.clone(), *c))
-                .collect();
-            standings.sort_by(compare_standing);
-            standings
-        }
-
-        pub fn teams(player: &str) -> String {
-            let teams = match player {
-                "Caroline" => &CAROLINE_TEAMS,
-                "Jeff" => &JEFF_TEAMS,
-                "Elliotte" => &ELLIOTTE_TEAMS,
-                _ => &DAVID_TEAMS,
-            };
-
-            let mut team_names: Vec<_> = teams.iter().map(|team| team_name(*team)).collect();
-            team_names.sort();
-            team_names.join(", ")
-        }
-    }
 }
 
 pub const FIVE_LETTER_LAST_NAMES: &[&str] = &[
