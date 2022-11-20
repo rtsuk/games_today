@@ -18,7 +18,6 @@ fn images_for_preview(game: &Game, previews: &PreviewStrings) -> Html {
             _ => None,
         })
         .collect();
-    log::info!("images_for_preview {}", preview);
     html! {
         <>
         {
@@ -27,6 +26,15 @@ fn images_for_preview(game: &Game, previews: &PreviewStrings) -> Html {
             })
         }
         </>
+    }
+}
+
+fn questions_comments() -> Html {
+    html! {
+        <div class="mt-3">
+        { "Questions, comments? Send an email to " }
+        <a href="mailto:rob@tsuk.com"> { "rob@tsuk.com" }</a>
+        </div>
     }
 }
 
@@ -51,7 +59,6 @@ pub struct GamesToday {
 
 impl GamesToday {
     fn fetch_schedule(&mut self, ctx: &Context<Self>) {
-        log::info!("fetch_schedule");
         let link = ctx.link().clone();
         let date = self.date;
         wasm_bindgen_futures::spawn_local(async move {
@@ -255,11 +262,15 @@ impl Component for GamesToday {
                             }
                         }
                 }
-                    <input id="date" type="date" value={self.date_str.to_string()}
+                    <input class="game_date"
+                           id="date"
+                           type="date"
+                           value={self.date.format("%F").to_string()}
                         oninput={ctx.link().callback(|e: InputEvent| {
                             let input: HtmlInputElement = e.target_unchecked_into();
 
                             Msg::DateChanged(input.value())})}/>
+                { questions_comments() }
                 </div>
             }
         } else {
@@ -267,6 +278,7 @@ impl Component for GamesToday {
                 <div class="container mt-4">
                 <h1>{ "Games Today" }</h1>
                 <h2>{ "Loading" }</h2>
+                { questions_comments() }
                 </div>
             }
         }

@@ -15,3 +15,17 @@ img.logo {
     height: 1em;
     margin: 0.2em;
 }
+
+.game_date {
+    -webkit-min-logical-width: 100px;
+}
+
+@media (prefers-color-scheme: dark) {
+   body {color:white; background-color:black;}
+
+   .game_date {
+       -webkit-min-logical-width: 100px;
+       background-color: black;
+       color:white;
+   }
+}
