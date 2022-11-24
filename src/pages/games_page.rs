@@ -14,7 +14,7 @@ fn images_for_preview(game: &Game, previews: &PreviewStrings) -> Html {
     let us_avail: Vec<String> = preview
         .split(",")
         .filter_map(|broadcaster| match broadcaster.trim() {
-            "ESPN+" | "NHLN" | "TNT" | "NBCSCA" => Some(broadcaster.to_owned()),
+            "ESPN+" | "ESPN +" | "NHLN" | "TNT" | "NBCSCA" => Some(broadcaster.replace(" ", "").to_owned()),
             _ => None,
         })
         .collect();
@@ -22,7 +22,7 @@ fn images_for_preview(game: &Game, previews: &PreviewStrings) -> Html {
         <>
         {
             for us_avail.iter().map(|broadcaster| html! {
-                <img class="logo" src={ format!("images/{}.png", broadcaster.trim().replace(" ", "_"))} />
+                <img alt = { format!("{}", broadcaster.trim()) } class="logo" src={ format!("images/{}.png", broadcaster.trim().replace(" ", "_"))} />
             })
         }
         </>
@@ -170,7 +170,7 @@ impl Component for GamesToday {
                 <div class="container mt-4">
                 <h1>
                     { format!("{}: {} games", self.date.format("%F"), schedule.total_items) }
-                    <a class="btn btn-primary ms-3" ref={ self.update_button_ref.clone() }
+                    <a href= { "update" } class="btn btn-primary ms-3" ref={ self.update_button_ref.clone() }
                         onclick={ ctx.link().callback(|_| Msg::UpdateButton)}>{ "Update" }</a>
                 </h1>
                 {
