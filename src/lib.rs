@@ -276,7 +276,7 @@ impl Game {
     }
 
     pub fn is_preview(&self) -> bool {
-        self.status.abstract_game_state == "Preview"
+        self.status.abstract_game_state == "Preview" && self.status.detailed_state != "Postponed"
     }
 
     pub fn is_live(&self) -> bool {
