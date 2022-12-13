@@ -14,7 +14,9 @@ fn images_for_preview(game: &Game, previews: &PreviewStrings) -> Html {
     let us_avail: Vec<String> = preview
         .split(",")
         .filter_map(|broadcaster| match broadcaster.trim() {
-            "ESPN+" | "ESPN +" | "NHLN" | "TNT" | "NBCSCA" => Some(broadcaster.replace(" ", "").to_owned()),
+            "ESPN+" | "ESPN +" | "NHLN" | "TNT" | "NBCSCA" => {
+                Some(broadcaster.replace(" ", "").to_owned())
+            }
             _ => None,
         })
         .collect();
@@ -52,9 +54,6 @@ pub struct GamesToday {
     previews: PreviewStrings,
     date: DateTime<Local>,
     date_str: String,
-    // schedule_fetch: Option<FetchTask>,
-    // refresh: Option<IntervalTask>,
-    update_button_ref: NodeRef,
 }
 
 impl GamesToday {
@@ -111,7 +110,6 @@ impl Component for GamesToday {
             previews: Default::default(),
             date,
             date_str: date.format("%m/%d/%Y").to_string(),
-            update_button_ref: NodeRef::default(),
         };
         gt.fetch_schedule(ctx);
         gt
@@ -170,8 +168,9 @@ impl Component for GamesToday {
                 <div class="container mt-4">
                 <h1>
                     { format!("{}: {} games", self.date.format("%F"), schedule.total_items) }
-                    <a href= { "update" } class="btn btn-primary ms-3" ref={ self.update_button_ref.clone() }
-                        onclick={ ctx.link().callback(|_| Msg::UpdateButton)}>{ "Update" }</a>
+                    <button class="btn btn-primary ms-3" onclick={ctx.link().callback(|_| Msg::Update)}>
+                        { "Update" }
+                    </button>
                 </h1>
                 {
                     if live.len() > 0 {
