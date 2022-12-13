@@ -11,18 +11,15 @@ type PreviewStrings = HashMap<usize, String>;
 
 fn images_for_preview(game: &Game, previews: &PreviewStrings) -> Html {
     let preview = previews.get(&game.game_pk).cloned().unwrap_or_default();
-    log::info!("previews {:?}", previews);
     let us_avail: Vec<String> = preview
         .split(",")
         .filter_map(|broadcaster| match broadcaster.trim() {
-            "ESPN+" | "ESPN +" | "NHLN" | "TNT" | "NBCSCA" => {
             "ESPN+" | "ESPN +" | "ESPN PLUS" | "NHLN" | "TNT" | "NBCSCA" => {
                 Some(broadcaster.replace(" ", "").to_owned())
             }
             _ => None,
         })
         .collect();
-    log::info!("us_avail {:?}", us_avail);
 
     html! {
         <>
