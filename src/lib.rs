@@ -255,9 +255,17 @@ impl Game {
 
     pub fn class(&self) -> String {
         if self.teams.home.team.id == teams::SAN_JOSE_SHARKS_ID
+            && self.teams.away.team.id == teams::EDMONTON_OILERS_ID
+        {
+            "oilers-sharks".to_string()
+        } else if self.teams.home.team.id == teams::SAN_JOSE_SHARKS_ID
             || self.teams.away.team.id == teams::SAN_JOSE_SHARKS_ID
         {
             "sharks".to_string()
+        } else if self.teams.home.team.id == teams::EDMONTON_OILERS_ID
+            || self.teams.away.team.id == teams::EDMONTON_OILERS_ID
+        {
+            "oilers".to_string()
         } else {
             "".to_string()
         }

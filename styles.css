@@ -11,6 +11,17 @@ li.sharks {
     color: white;
 }
 
+li.oilers {
+    background-color: #FF4C00;
+    color: white;
+}
+
+li.oilers-sharks {
+    color: white;
+	background: rgb(255,76,0);
+	background: linear-gradient(90deg, rgba(255,76,0,1) 0%, rgba(255,76,0,1) 30%, black 45%, black 55%, rgba(0,109,117,1) 70%, rgba(0,109,117,1) 100%);
+}
+
 img.logo {
     height: 1em;
     margin: 0.2em;
