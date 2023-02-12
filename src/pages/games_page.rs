@@ -45,7 +45,6 @@ fn questions_comments() -> Html {
 pub enum Msg {
     FetchReady(Result<NextGameSchedule, Error>),
     PreviewReady(usize, String),
-    Update,
     DateChanged(String),
     UpdateButton,
 }
@@ -146,7 +145,6 @@ impl Component for GamesToday {
                 }
                 true
             }
-            Msg::Update => true,
         }
     }
 
@@ -169,7 +167,7 @@ impl Component for GamesToday {
                 <div class="container mt-4">
                 <h1>
                     { format!("{}: {} games", self.date.format("%F"), schedule.total_items) }
-                    <button class="btn btn-primary ms-3" onclick={ctx.link().callback(|_| Msg::Update)}>
+                    <button class="btn btn-primary ms-3" onclick={ctx.link().callback(|_| Msg::UpdateButton)}>
                         { "Update" }
                     </button>
                 </h1>
