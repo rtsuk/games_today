@@ -109,7 +109,7 @@ fn main() -> Result<(), Error> {
         writeln!(css_file, "}}\n")?;
         for other_team in &colors {
             if other_team != team {
-		        let other_class_name = team_class_name(&other_team.name, &team_names);
+                let other_class_name = team_class_name(&other_team.name, &team_names);
                 let class_name_two = two_team_class_name(&team.name, &other_team.name, &team_names);
                 let other_team_color = &other_team.colors.hex[0];
                 writeln!(css_file, "li.{class_name_two} {{")?;

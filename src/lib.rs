@@ -205,18 +205,26 @@ impl Game {
                 )
             }
         } else {
-            let tz = FixedOffset::west_opt(offset as i32).unwrap();
-            let t = self.game_date.with_timezone(&tz).time();
-            let (pm, h) = t.hour12();
-            let pm_str = if pm { "PM" } else { "AM" };
-            format!(
-                "{: >2}:{:02} {} {} @ {}",
-                h,
-                t.minute(),
-                pm_str,
-                self.teams.away.team.name,
-                self.teams.home.team.name,
-            )
+            if self.is_tbd() {
+                format!(
+                    "{} @ {}",
+                    self.teams.away.team.name,
+                    self.teams.home.team.name,
+                )
+            } else {
+                let tz = FixedOffset::west_opt(offset as i32).unwrap();
+                let t = self.game_date.with_timezone(&tz).time();
+                let (pm, h) = t.hour12();
+                let pm_str = if pm { "PM" } else { "AM" };
+                format!(
+                    "{: >2}:{:02} {} {} @ {}",
+                    h,
+                    t.minute(),
+                    pm_str,
+                    self.teams.away.team.name,
+                    self.teams.home.team.name,
+                )
+            }
         }
     }
 
@@ -273,6 +281,10 @@ impl Game {
 
     pub fn is_finished(&self) -> bool {
         self.status.abstract_game_state == "Final"
+    }
+
+    pub fn is_tbd(&self) -> bool {
+        self.status.detailed_state == "Scheduled (Time TBD)"
     }
 
     pub fn is_regular_season(&self) -> bool {
