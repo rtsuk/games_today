@@ -13,6 +13,45 @@ pub mod teams {
     use deunicode::deunicode;
     use inflector::Inflector;
     use serde::{Deserialize, Serialize};
+    use std::collections::HashMap;
+    use once_cell::sync::Lazy;
+
+    pub static TEAM_NICKNAMES: Lazy<HashMap<usize, &'static str>> = Lazy::new(|| {
+        [
+            (1, "Devils"),
+            (2, "Islanders"),
+            (3, "Rangers"),
+            (4, "Flyers"),
+            (5, "Penguins"),
+            (6, "Bruins"),
+            (7, "Sabres"),
+            (8, "Canadiens"),
+            (9, "Senators"),
+            (10, "Leafs"),
+            (12, "Canes"),
+            (13, "Panthers"),
+            (14, "Lightning"),
+            (15, "Capitals"),
+            (16, "Blackhawks"),
+            (17, "Wings"),
+            (18, "Predators"),
+            (19, "Blues"),
+            (20, "Flames"),
+            (21, "Avalanche"),
+            (22, "Oilers"),
+            (23, "Canucks"),
+            (24, "Ducks"),
+            (25, "Stars"),
+            (26, "Kings"),
+            (28, "Sharks"),
+            (29, "Jackets"),
+            (30, "Wild"),
+            (52, "Jets"),
+            (54, "Coyotes"),
+            (55, "Knights"),
+            (56, "Kraken")
+        ].iter().cloned().collect()
+    });
 
     pub const ANAHEIM_DUCKS_ID: usize = 24;
     pub const ARIZONA_COYOTES_ID: usize = 53;
@@ -208,8 +247,7 @@ impl Game {
             if self.is_tbd() {
                 format!(
                     "{} @ {}",
-                    self.teams.away.team.name,
-                    self.teams.home.team.name,
+                    self.teams.away.team.name, self.teams.home.team.name,
                 )
             } else {
                 let tz = FixedOffset::west_opt(offset as i32).unwrap();
